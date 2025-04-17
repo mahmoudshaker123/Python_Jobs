@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Python Jobs - PythonCareers{% endblock %}
+
+{% block content %}
+<!-- Search Section -->
+<section class="search-section py-4 bg-white shadow-sm">
+    <div class="container">
+        <h2 class="display-5 text-center mb-4">Search Python Jobs</h2>
+        <form method="GET" action="{% url 'job_search' %}" class="row g-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-search text-muted"></i>
+                    </span>
+                    <input type="text" class="form-control border-start-0" name="title" 
+                           placeholder="Job title or company" value="{{ request.GET.title }}">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="input-group">
+                    <span class="input-group-text bg-white border-end-0">
+                        <i class="fas fa-map-marker-alt text-muted"></i>
+                    </span>
+                    <select name="location" class="form-select border-start-0">
+                        <option value="">All Locations</option>
+                        <option value="Remote" {% if request.GET.location == 'Remote' %}selected{% endif %}>Remote</option>
+                        <option value="Cairo" {% if request.GET.location == 'Cairo' %}selected{% endif %}>Cairo</option>
+                        <option value="Giza" {% if request.GET.location == 'Giza' %}selected{% endif %}>Giza</option>
+                        <option value="Alexandria" {% if request.GET.location == 'Alexandria' %}selected{% endif %}>Alexandria</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select class="form-select" name="job_type">
+                    <option value="">All Job Types</option>
+                    <option value="Full-time">Full-time</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Internship">Internship</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Search Jobs</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<!-- Job List Section -->
+<section class="job-list py-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h4">Available Python Jobs</h2>
+            <p class="text-muted mb-0">{{ page_obj.paginator.count }} jobs found</p>
+        </div>
+
+        {% if page_obj.object_list %}
+            <div class="row g-4">
+                {% for job in page_obj %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card job-card h-100 border-0 shadow-sm hover-shadow">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ job.title }}</h5>
+                            <p class="text-muted mb-2">{{ job.company.name }}</p>
+                            <div class="d-flex gap-2 mb-3">
+                                <span class="badge bg-light text-dark">
+                                    <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                                    {{ job.location }}
+                                </span>
+                                <span class="badge bg-light text-dark">
+                                    <i class="fas fa-clock text-muted me-1"></i>
+                                    {{ job.posted_at|timesince }} ago
+                                </span>
+                            </div>
+                            <a href="{% url 'job_detail' job.id %}" class="btn btn-primary w-100">View Details</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Pagination -->
+            <nav aria-label="Page navigation" class="mt-5">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if page_obj.number == num %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ num }}</span>
+                            </li>
+                        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        {% else %}
+            <div class="text-center py-5">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-5">
+                        <i class="fas fa-search fa-3x text-muted mb-4"></i>
+                        <h3 class="h4 mb-3">No Jobs Found</h3>
+                        <p class="text-muted mb-4">
+                            We couldn't find any jobs matching your search criteria. 
+                            Try adjusting your filters or search terms.
+                        </p>
+                        <a href="{% url 'job_list' %}" class="btn btn-primary">
+                            <i class="fas fa-redo me-2"></i>Reset Search
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

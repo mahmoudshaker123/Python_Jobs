@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ job.title }} - PythonCareers{% endblock %}
+
+{% block content %}
+<!-- Job Details Section -->
+<section class="job-details py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <h1 class="display-5 fw-bold mb-4">{{ job.title }}</h1>
+                        
+                        <div class="d-flex gap-3 mb-4">
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-building text-muted me-1"></i>
+                                {{ job.company.name }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-map-marker-alt text-muted me-1"></i>
+                                {{ job.location }}
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-clock text-muted me-1"></i>
+                                Posted {{ job.posted_at|timesince }} ago
+                            </span>
+                        </div>
+
+                        <div class="job-content mb-4">
+                            <h3 class="h5 fw-bold mb-3">Job Description</h3>
+                            <div class="text-muted">
+                                {{ job.description|linebreaks }}
+                            </div>
+                        </div>
+
+                        <div class="job-requirements mb-4">
+                            <h3 class="h5 fw-bold mb-3">Requirements</h3>
+                            <div class="text-muted">
+                                {{ job.requirement|linebreaks }}
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <a href="{{ job.job_url }}" class="btn btn-primary btn-lg" target="_blank">
+                                <i class="fas fa-paper-plane me-2"></i>Apply Now
+                            </a>
+                            <a href="{% url 'job_list' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Jobs
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
