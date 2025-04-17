@@ -1,0 +1,35 @@
+# البيئة الافتراضية
+venv/
+.env/
+
+# ملفات نظام التشغيل
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+
+# ملفات النظام (Windows / macOS)
+.DS_Store
+Thumbs.db
+
+# إعدادات محررات الأكواد
+.vscode/
+.idea/
+
+# ملفات التكوين الحساسة
+.env
+*.env
+
+# مجلد static أو media المؤقت
+staticfiles/
+media/
+
+# ملفات الترحيل المؤقتة
+*.bak
+*.swp
+*.tmp
+
+# ملفات التثبيت
+*.egg-info/
+dist/
+build/
