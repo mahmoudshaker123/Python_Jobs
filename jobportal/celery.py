@@ -3,21 +3,26 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
-# تعيين إعدادات Django كإعدادات افتراضية لـ Celery
+# تعيين إعدادات Django الافتراضية
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'jobportal.settings')
 
 app = Celery('jobportal')
 
-# استخدام إعدادات Django كإعدادات Celery
+# استخدام إعدادات Django لتهيئة Celery
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
-# اكتشاف المهام تلقائيًا في جميع التطبيقات المثبتة
+# تحميل المهام من جميع تطبيقات Django المسجلة
 app.autodiscover_tasks()
 
+# جدولة المهام
 app.conf.beat_schedule = {
-    'fetch-jobs-every-hour': {
-        'task': 'your_app_name.tasks.fetch_jobs',
-        'schedule': crontab(minute=0, hour='*/1'),  # تشغيل المهمة كل ساعة
+    'scrape-jobs': {
+        'task': 'jobs.tasks.scrape_jobs',
+        'schedule': crontab(hour=8, minute=0),  # تشغيل الساعة 8 صباحاً
+    },
+    'update-jobs': {
+        'task': 'jobs.tasks.update_jobs',
+        'schedule': crontab(hour=8, minute=5),  # تشغيل الساعة 8:05 صباحاً
     },
 }
 

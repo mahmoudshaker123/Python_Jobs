@@ -2,30 +2,36 @@ from celery import shared_task
 import requests
 from bs4 import BeautifulSoup
 from .models import Job, Company
+from django.core.management import call_command
+from datetime import datetime, timedelta
+
+
 
 @shared_task
-def fetch_python_jobs():
-    url = 'https://wuzzuf.net/search/jobs/?q=python&a=hpb'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+def scrape_jobs():
+    """مهمة جمع الوظائف من Wuzzuf"""
+    try:
+        call_command('scrape_wuzzuf')
+        return "تم جمع الوظائف بنجاح"
+    except Exception as e:
+        return f"حدث خطأ أثناء جمع الوظائف: {str(e)}"
 
-    # استخراج الوظائف من الصفحة
-    job_listings = soup.find_all('div', class_='css-1gatmva e1v1l3u10')
-    for job in job_listings:
-        title = job.find('h2', class_='css-m604qf').text.strip()
-        company_name = job.find('a', class_='css-17s97q8').text.strip()
-        location = job.find('span', class_='css-5wys0k').text.strip()
-        description = job.find('div', class_='css-y4udm8').text.strip()
+@shared_task
+def update_jobs():
+    """مهمة تحديث الوظائف في قاعدة البيانات"""
+    try:
+        call_command('update_jobs')
+        return "تم تحديث الوظائف بنجاح"
+    except Exception as e:
+        return f"حدث خطأ أثناء تحديث الوظائف: {str(e)}"
 
-        # إنشاء أو تحديث الشركة
-        company, created = Company.objects.get_or_create(name=company_name)
-
-        # إنشاء أو تحديث الوظيفة
-        Job.objects.update_or_create(
-            title=title,
-            company=company,
-            defaults={
-                'location': location,
-                'description': description,
-            }
-        )
+@shared_task
+def cleanup_old_jobs():
+    """مهمة تنظيف الوظائف القديمة"""
+    try:
+        # تعطيل الوظائف التي لم يتم تحديثها منذ 30 يوم
+        old_date = datetime.now() - timedelta(days=30)
+        Job.objects.filter(updated_at__lt=old_date).update(is_active=False)
+        return "تم تنظيف الوظائف القديمة بنجاح"
+    except Exception as e:
+        return f"حدث خطأ أثناء تنظيف الوظائف القديمة: {str(e)}"

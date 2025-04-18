@@ -5,11 +5,11 @@ from .models import Job
 from .forms import SubscriberForm
 
 def index(request):
-    jobs = Job.objects.all().order_by('-posted_at')[:9]
+    jobs = Job.objects.all().order_by('-created_at')[:9]
     return render(request, 'index.html', {'jobs': jobs})
 
 def job_list(request):
-    jobs = Job.objects.all().order_by('-posted_at')
+    jobs = Job.objects.all().order_by('-created_at')
     paginator = Paginator(jobs, 12)  
 
     page_number = request.GET.get('page')
@@ -21,7 +21,7 @@ def job_search(request):
     search_location = request.GET.get('location', 'All Locations')
 
     # تصفية الوظائف بناءً على معايير البحث
-    jobs = Job.objects.all().order_by('-posted_at')
+    jobs = Job.objects.all().order_by('-created_at')
 
     if search_title:
         jobs = jobs.filter(title__icontains=search_title)  # البحث في العنوان
