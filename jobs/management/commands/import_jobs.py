@@ -27,6 +27,48 @@ class Command(BaseCommand):
             return company_name if company_name else "Unknown Company"
         return "Unknown Company"
 
+    def get_job_description(self, title, description, requirements):
+        if description != "Not available":
+            return description
+        
+        # Create a basic description based on job title
+        return f"We are looking for a {title} to join our team. This position requires strong technical skills and relevant experience."
+
+    def get_job_requirements(self, title, requirements):
+        if requirements != "Not available":
+            return requirements
+        
+        # Create basic requirements based on job title
+        base_requirements = [
+            "Strong problem-solving skills",
+            "Excellent communication abilities",
+            "Ability to work in a team environment",
+            "Attention to detail",
+            "Time management skills"
+        ]
+        
+        # Add specific requirements based on job title
+        if "developer" in title.lower():
+            base_requirements.extend([
+                "Proficiency in programming languages",
+                "Experience with software development",
+                "Understanding of software design patterns"
+            ])
+        elif "engineer" in title.lower():
+            base_requirements.extend([
+                "Strong analytical skills",
+                "Experience with system design",
+                "Knowledge of engineering principles"
+            ])
+        elif "administrator" in title.lower():
+            base_requirements.extend([
+                "System administration experience",
+                "Knowledge of server management",
+                "Understanding of network protocols"
+            ])
+        
+        return "\n".join(base_requirements)
+
     def handle(self, *args, **options):
         csv_file = options['csv_file']
         success_count = 0
@@ -60,13 +102,17 @@ class Command(BaseCommand):
                                 skipped_count += 1
                                 continue
 
+                            # Get improved description and requirements
+                            description = self.get_job_description(row['Title'], row['Job Description'], row['Job Requirements'])
+                            requirements = self.get_job_requirements(row['Title'], row['Job Requirements'])
+
                             # Create new job
                             Job.objects.create(
                                 title=row['Title'],
                                 company=company,
                                 location=row['Location'],
-                                description=row['Job Description'],
-                                requirement=row['Job Requirements'],
+                                description=description,
+                                requirement=requirements,
                                 job_url=row['Link']
                             )
                             success_count += 1
