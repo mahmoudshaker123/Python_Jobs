@@ -97,10 +97,27 @@ class Command(BaseCommand):
                                         if company_elem:
                                             company = company_elem.text.strip().replace('-', '').strip()
 
-                                        # البحث عن الموقع
-                                        location_elem = job_soup.find(['div', 'span'], string=lambda x: x and 'Egypt' in x)
-                                        if location_elem:
-                                            location = location_elem.text.strip()
+                                        # البحث عن الموقع - تحسين البحث
+                                        # أولاً: البحث في معلومات الوظيفة
+                                        job_info_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
+                                        if job_info_section:
+                                            # البحث عن عنصر الموقع
+                                            location_elem = job_info_section.find(['div', 'span'], {'class': lambda x: x and 'css-' in x and 'location' in str(x).lower()})
+                                            if location_elem:
+                                                location = location_elem.text.strip()
+                                            else:
+                                                # البحث عن أي نص يحتوي على الموقع
+                                                for elem in job_info_section.find_all(['div', 'span']):
+                                                    text = elem.text.strip().lower()
+                                                    if ('cairo' in text or 'egypt' in text) and not any(word in text for word in ['developer', 'engineer', 'specialist', 'manager']):
+                                                        location = elem.text.strip()
+                                                        break
+
+                                        # إذا لم نجد الموقع في القسم الرئيسي، نبحث في باقي الصفحة
+                                        if location == "Not available":
+                                            location_elem = job_soup.find(['div', 'span'], string=lambda x: x and ('cairo' in str(x).lower() or 'egypt' in str(x).lower()))
+                                            if location_elem and not any(word in location_elem.text.lower() for word in ['developer', 'engineer', 'specialist', 'manager']):
+                                                location = location_elem.text.strip()
 
                                         # البحث عن الخبرة والراتب
                                         job_info = job_soup.find_all(['div', 'span'], {'class': lambda x: x and 'css-' in x})
@@ -116,25 +133,23 @@ class Command(BaseCommand):
                                         job_req = "Not available"
                                         
                                         # البحث عن قسم الوصف
-                                        desc_section = job_soup.find(['div', 'section'], {'class': lambda x: x and 'css-' in x and 'description' in str(x).lower()})
+                                        desc_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
                                         if desc_section:
-                                            # البحث عن النص التالي مباشرة
-                                            next_elem = desc_section.find_next(['div', 'p', 'span'])
-                                            if next_elem:
-                                                job_desc = next_elem.text.strip()
+                                            # البحث عن جميع الفقرات في قسم الوصف
+                                            paragraphs = desc_section.find_all('p')
+                                            if paragraphs:
+                                                job_desc = '\n'.join(p.text.strip() for p in paragraphs)
                                             else:
-                                                # إذا لم نجد النص التالي، نأخذ النص من القسم نفسه
                                                 job_desc = desc_section.text.strip()
 
                                         # البحث عن قسم المتطلبات
-                                        req_section = job_soup.find(['div', 'section'], {'class': lambda x: x and 'css-' in x and 'requirements' in str(x).lower()})
+                                        req_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
                                         if req_section:
-                                            # البحث عن النص التالي مباشرة
-                                            next_elem = req_section.find_next(['div', 'p', 'span', 'ul'])
-                                            if next_elem:
-                                                job_req = next_elem.text.strip()
+                                            # البحث عن قائمة المتطلبات
+                                            requirements_list = req_section.find_all('li')
+                                            if requirements_list:
+                                                job_req = '\n'.join(li.text.strip() for li in requirements_list)
                                             else:
-                                                # إذا لم نجد النص التالي، نأخذ النص من القسم نفسه
                                                 job_req = req_section.text.strip()
 
                                         # إذا لم نجد الأقسام بالطريقة السابقة، نبحث عن أي نص يحتوي على الكلمات المفتاحية
