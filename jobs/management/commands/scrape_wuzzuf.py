@@ -176,3 +176,7 @@ class Command(BaseCommand):
         except PermissionError:
             self.stdout.write(self.style.ERROR('خطأ في الوصول إلى الملف. يرجى التأكد من إغلاق الملف إذا كان مفتوحاً في برنامج آخر.'))
             return
+
+
+
+            

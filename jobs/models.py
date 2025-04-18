@@ -1,5 +1,4 @@
 from django.db import models
-from django.utils import timezone
 
 class Company(models.Model):
     name = models.CharField(max_length=255)
@@ -11,27 +10,15 @@ class Company(models.Model):
 
 class Job(models.Model):
     title = models.CharField(max_length=255)
-    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='jobs')
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, null=True, blank=True)
     location = models.CharField(max_length=255)
-    link = models.URLField(blank=True, null=True)
     description = models.TextField()
-    requirements = models.TextField(blank=True, null=True)
-    experience = models.CharField(max_length=255, blank=True, null=True)
-    salary = models.CharField(max_length=255, blank=True, null=True)
-    job_type = models.CharField(max_length=50, default='python')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_active = models.BooleanField(default=True)
-
-    class Meta:
-        ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['job_type']),
-            models.Index(fields=['is_active']),
-        ]
+    posted_at = models.DateTimeField(auto_now_add=True)
+    requirement = models.TextField(default='No requirements specified')  # Add default value
+    job_url = models.URLField(max_length=200, default='')
 
     def __str__(self):
-        return f"{self.title} at {self.company.name}"
+        return self.title
 
 class Subscriber(models.Model):
     email = models.EmailField(unique=True)
@@ -39,3 +26,6 @@ class Subscriber(models.Model):
 
     def __str__(self):
         return self.email
+
+
+        
