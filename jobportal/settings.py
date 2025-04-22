@@ -26,7 +26,8 @@ SECRET_KEY = 'django-insecure-668e@1ow-p%60qdxw1aerwel#y1-m=l*o5ar#c@e#tolk45g58
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
 
 
 # Application definition
@@ -85,10 +86,10 @@ WSGI_APPLICATION = 'jobportal.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'jobportal_db',  # اسم قاعدة البيانات
-        'USER': 'pythonjob',  # اسم المستخدم
-        'PASSWORD': 'pythonjob',  # كلمة المرور
-        'HOST': 'localhost',
+        'NAME': 'jobportal',
+        'USER': 'postgres',
+        'PASSWORD': 'postgres',
+        'HOST': 'db',
         'PORT': '5432',
     }
 }
@@ -138,24 +139,35 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# إعدادات Celery
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+# Email Configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'mahmoud.shaker123123@gmail.com'
+EMAIL_HOST_PASSWORD = 'oygf reyj sldi kmnn'
+DEFAULT_FROM_EMAIL = 'mahmoud.shaker123123@gmail.com'
+
+# Celery Configuration
+CELERY_BROKER_URL = 'redis://redis:6379/0'  # Internal Docker port (not the mapped port)
+CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # Internal Docker port (not the mapped port)
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Africa/Cairo'
+CELERY_TIMEZONE = 'UTC'
+
+# Celery Beat Schedule
 CELERY_BEAT_SCHEDULE = {
     'scrape-jobs': {
         'task': 'jobs.tasks.scrape_jobs',
-        'schedule': crontab(hour=8, minute=0),
-    },
-    'update-jobs': {
-        'task': 'jobs.tasks.update_jobs',
-        'schedule': crontab(hour=8, minute=5),
+        'schedule': 3600.0,  # Run every hour
     },
     'cleanup-old-jobs': {
         'task': 'jobs.tasks.cleanup_old_jobs',
-        'schedule': crontab(hour=0, minute=0),  # تشغيل الساعة 12 منتصف الليل
+        'schedule': 86400.0,  # Run every day
+    },
+    'send-daily-digest': {
+        'task': 'jobs.tasks.send_daily_job_digest',
+        'schedule': crontab(hour=8, minute=0),  # Run at 8 AM every day
     },
 }

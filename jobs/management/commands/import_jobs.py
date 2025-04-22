@@ -3,6 +3,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from jobs.models import Job, Company
 import re
+from urllib.parse import urlparse
 
 class Command(BaseCommand):
     help = 'Import jobs from a CSV file'
@@ -11,34 +12,102 @@ class Command(BaseCommand):
         parser.add_argument('csv_file', type=str, help='Path to the CSV file')
 
     def extract_company_name(self, url):
-        # Extract company name from URL
-        # Example URL: https://wuzzuf.net/jobs/p/bBVD1SDdlEN8-Data-Engineer-HYVE-Technology-Consulting-Cairo-Egypt
-        match = re.search(r'-(.*?)-(Cairo|Giza)-Egypt$', url)
-        if match:
-            # Split by '-' and take the last part which should be the company name
-            parts = match.group(1).split('-')
-            # Remove job title parts (usually the first few parts)
-            company_parts = parts[-3:]  # Take last 3 parts which usually contain company name
+        try:
+            # Parse the URL
+            parsed_url = urlparse(url)
+            path_parts = parsed_url.path.split('/')
             
-            # Remove common job-related words
-            job_words = {'developer', 'engineer', 'administrator', 'manager', 'specialist', 'system'}
-            company_name = ' '.join(part for part in company_parts if part.lower() not in job_words)
+            # Look for company name in the path
+            for part in reversed(path_parts):
+                if part and not part.isdigit():
+                    # Remove common job-related words and special characters
+                    company_name = re.sub(r'[^a-zA-Z0-9\s]', ' ', part)
+                    company_name = ' '.join(word for word in company_name.split() 
+                                         if word.lower() not in {
+                                             'developer', 'engineer', 'administrator', 
+                                             'manager', 'specialist', 'system', 'job',
+                                             'jobs', 'career', 'careers', 'search',
+                                             'view', 'apply', 'detail', 'details'
+                                         })
+                    if company_name and len(company_name) > 2:
+                        return company_name.title()
             
-            return company_name if company_name else "Unknown Company"
+            # If no company name found in path, try to extract from domain
+            domain = parsed_url.netloc
+            if domain:
+                # Remove common domain parts
+                domain = domain.replace('www.', '').replace('.com', '').replace('.org', '')
+                if domain and len(domain) > 2:
+                    return domain.title()
+                
+        except Exception:
+            pass
+            
         return "Unknown Company"
 
     def get_job_description(self, title, description, requirements):
-        if description != "Not available":
+        """Generate a detailed job description with Python-specific content."""
+        if description and len(description) > 100:
             return description
+            
+        # Extract Python-related keywords from title
+        title_lower = title.lower()
+        python_keywords = {
+            'python': 'Python programming',
+            'django': 'Django web framework',
+            'flask': 'Flask web framework',
+            'fastapi': 'FastAPI framework',
+            'pandas': 'Pandas data analysis',
+            'numpy': 'NumPy scientific computing',
+            'scikit-learn': 'scikit-learn machine learning',
+            'tensorflow': 'TensorFlow deep learning',
+            'pytorch': 'PyTorch deep learning',
+            'data science': 'data science',
+            'machine learning': 'machine learning',
+            'backend': 'backend development',
+            'api': 'API development',
+            'web development': 'web development'
+        }
         
-        # Create a basic description based on job title
-        return f"We are looking for a {title} to join our team. This position requires strong technical skills and relevant experience."
+        # Identify primary technology
+        primary_tech = None
+        for keyword, tech in python_keywords.items():
+            if keyword in title_lower:
+                primary_tech = tech
+                break
+                
+        if not primary_tech:
+            primary_tech = 'Python development'
+            
+        # Generate description based on primary technology
+        base_description = f"""
+        We are looking for a skilled {primary_tech} professional to join our team. 
+        The ideal candidate will have strong experience in {primary_tech} and related technologies.
+        
+        Key Responsibilities:
+        - Develop and maintain {primary_tech} applications
+        - Write clean, efficient, and well-documented code
+        - Collaborate with team members on software design and implementation
+        - Implement best practices in software development
+        - Participate in code reviews and technical discussions
+        
+        Required Skills:
+        - Strong proficiency in {primary_tech}
+        - Experience with version control systems
+        - Understanding of software development best practices
+        - Problem-solving and analytical skills
+        """
+        
+        # Add specific requirements if provided
+        if requirements:
+            base_description += "\nAdditional Requirements:\n" + requirements
+            
+        return base_description.strip()
 
     def get_job_requirements(self, title, requirements):
-        if requirements != "Not available":
-            return requirements
+        if requirements and requirements.strip() and requirements != "Not available":
+            return requirements.strip()
         
-        # Create basic requirements based on job title
         base_requirements = [
             "Strong problem-solving skills",
             "Excellent communication abilities",
@@ -48,94 +117,126 @@ class Command(BaseCommand):
         ]
         
         # Add specific requirements based on job title
-        if "developer" in title.lower():
+        title_lower = title.lower()
+        if "python" in title_lower:
+            base_requirements.extend([
+                "Proficiency in Python programming",
+                "Experience with Python frameworks (Django, Flask, etc.)",
+                "Understanding of Python best practices and design patterns",
+                "Knowledge of database systems and ORMs"
+            ])
+        elif "developer" in title_lower:
             base_requirements.extend([
                 "Proficiency in programming languages",
                 "Experience with software development",
-                "Understanding of software design patterns"
+                "Understanding of software design patterns",
+                "Version control experience (Git)"
             ])
-        elif "engineer" in title.lower():
+        elif "engineer" in title_lower:
             base_requirements.extend([
                 "Strong analytical skills",
                 "Experience with system design",
-                "Knowledge of engineering principles"
-            ])
-        elif "administrator" in title.lower():
-            base_requirements.extend([
-                "System administration experience",
-                "Knowledge of server management",
-                "Understanding of network protocols"
+                "Knowledge of engineering principles",
+                "Problem-solving abilities"
             ])
         
         return "\n".join(base_requirements)
 
+    def is_duplicate_job(self, title, company, job_url):
+        # Check for duplicates using multiple criteria
+        return Job.objects.filter(
+            title=title,
+            company=company,
+            job_url=job_url
+        ).exists()
+
+    def is_python_job(self, title, description, requirements):
+        """Check if the job is Python-related."""
+        python_keywords = {
+            'python', 'django', 'flask', 'fastapi', 'pandas', 'numpy',
+            'scikit-learn', 'tensorflow', 'pytorch', 'data science',
+            'machine learning', 'backend', 'api', 'web development'
+        }
+        
+        # Check title
+        title_lower = title.lower()
+        if any(keyword in title_lower for keyword in python_keywords):
+            return True
+            
+        # Check description
+        if description:
+            desc_lower = description.lower()
+            if any(keyword in desc_lower for keyword in python_keywords):
+                return True
+                
+        # Check requirements
+        if requirements:
+            reqs_lower = ' '.join(requirements).lower()
+            if any(keyword in reqs_lower for keyword in python_keywords):
+                return True
+                
+        return False
+
     def handle(self, *args, **options):
         csv_file = options['csv_file']
-        success_count = 0
-        error_count = 0
-        skipped_count = 0
-
         try:
             with open(csv_file, 'r', encoding='utf-8') as file:
                 reader = csv.DictReader(file)
+                total_jobs = 0
+                imported_jobs = 0
+                skipped_jobs = 0
+                errors = 0
                 
                 for row in reader:
+                    total_jobs += 1
                     try:
-                        with transaction.atomic():
-                            # Extract company name from URL if Company field is empty
-                            company_name = row['Company'] if row['Company'] else self.extract_company_name(row['Link'])
+                        title = row.get('title', '').strip()
+                        company = row.get('company', '').strip()
+                        location = row.get('location', '').strip()
+                        job_url = row.get('job_url', '').strip()
+                        description = row.get('description', '').strip()
+                        requirements = row.get('requirements', '').strip()
+                        
+                        # Skip if no title or URL
+                        if not title or not job_url:
+                            skipped_jobs += 1
+                            continue
                             
-                            # Get or create company
-                            company, created = Company.objects.get_or_create(
-                                name=company_name,
-                                defaults={
-                                    'location': row['Location'],
-                                    'description': f"Company from {row['Location']}"
-                                }
-                            )
-
-                            # Check if job already exists
-                            if Job.objects.filter(title=row['Title'], company=company).exists():
-                                self.stdout.write(
-                                    self.style.WARNING(f'Skipping duplicate job: {row["Title"]} at {company.name}')
-                                )
-                                skipped_count += 1
-                                continue
-
-                            # Get improved description and requirements
-                            description = self.get_job_description(row['Title'], row['Job Description'], row['Job Requirements'])
-                            requirements = self.get_job_requirements(row['Title'], row['Job Requirements'])
-
-                            # Create new job
-                            Job.objects.create(
-                                title=row['Title'],
-                                company=company,
-                                location=row['Location'],
-                                description=description,
-                                requirement=requirements,
-                                job_url=row['Link']
-                            )
-                            success_count += 1
-                            self.stdout.write(
-                                self.style.SUCCESS(f'Successfully imported job: {row["Title"]} at {company.name}')
-                            )
-
-                    except Exception as e:
-                        error_count += 1
-                        self.stdout.write(
-                            self.style.ERROR(f'Error importing job {row["Title"]}: {str(e)}')
+                        # Skip if not a Python-related job
+                        if not self.is_python_job(title, description, requirements):
+                            skipped_jobs += 1
+                            continue
+                        
+                        # Extract company name if not provided
+                        if not company:
+                            company = self.extract_company_name(job_url)
+                            
+                        # Skip if duplicate
+                        if self.is_duplicate_job(title, company, job_url):
+                            skipped_jobs += 1
+                            continue
+                            
+                        # Create job entry
+                        Job.objects.create(
+                            title=title,
+                            company=company,
+                            location=location if location else "Not available",
+                            job_url=job_url,
+                            description=self.get_job_description(title, description, requirements),
+                            requirements=self.get_job_requirements(title, requirements)
                         )
-
+                        imported_jobs += 1
+                        
+                    except Exception as e:
+                        self.stderr.write(self.style.ERROR(f'Error processing job: {str(e)}'))
+                        errors += 1
+                        
+                self.stdout.write(self.style.SUCCESS(
+                    f'Import complete. Total jobs: {total_jobs}, '
+                    f'Imported: {imported_jobs}, '
+                    f'Skipped: {skipped_jobs}, '
+                    f'Errors: {errors}'
+                ))
+                
         except FileNotFoundError:
-            self.stdout.write(
-                self.style.ERROR(f'CSV file not found: {csv_file}')
-            )
-            return
-
-        # Print summary
-        self.stdout.write(self.style.SUCCESS(
-            f'\nImport completed!\n'
-            f'Successfully imported: {success_count}\n'
-            f'Skipped duplicates: {skipped_count}\n'
-            f'Errors: {error_count}'
-        )) 
+            self.stderr.write(self.style.ERROR(f'File not found: {csv_file}')) 
