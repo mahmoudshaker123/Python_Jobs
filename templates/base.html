@@ -1,92 +1,73 @@
 {% load static %}
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Curated Python opportunities for developers ready to make their next move.">
+    <meta name="theme-color" content="#071426">
     <title>{% block title %}PythonCareers{% endblock %}</title>
-
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    
-    <!-- AOS CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-
-    <!-- Custom CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'styles.css' %}">
 </head>
-<body class="bg-gray-50">
-    <!-- Header -->
-    <header class="bg-white shadow-sm sticky-top">
-        <div class="container">
-            <nav class="navbar navbar-expand-lg navbar-light py-1">
-                <div class="container-fluid">
-                    <a class="navbar-brand fw-bold text-primary fs-4" href="{% url 'index' %}">PythonCareers</a>
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav ms-auto">
-                            <li class="nav-item me-3">
-                                <a class="nav-link fw-medium" href="{% url 'index' %}">Home</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link fw-medium" href="{% url 'job_list' %}">Jobs</a>
-                            </li>
-                        </ul>
-                    </div>
+<body>
+    <header class="site-header sticky-top">
+        <nav class="navbar navbar-expand-lg" aria-label="Primary navigation">
+            <div class="container">
+                <a class="brand" href="{% url 'index' %}" aria-label="PythonCareers home">
+                    <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
+                    <span>Python<span>Careers</span></span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="collapse navbar-collapse" id="mainNav">
+                    <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
+                        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'index' %}">Home</a></li>
+                        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'job_list' or request.resolver_match.url_name == 'job_detail' %}active{% endif %}" href="{% url 'job_list' %}">Browse jobs</a></li>
+                        <li class="nav-item ms-lg-2"><a class="btn btn-nav" href="{% url 'subscribe' %}"><i class="fa-regular fa-bell"></i> Get job alerts</a></li>
+                    </ul>
                 </div>
-            </nav>
-        </div>
+            </div>
+        </nav>
     </header>
 
-    <!-- Main Content -->
-    <main class="min-vh-100">
-        {% block content %}
-        {% endblock %}
-    </main>
+    {% if messages %}
+    <div class="toast-stack container" aria-live="polite">
+        {% for message in messages %}
+        <div class="site-alert site-alert-{{ message.tags }}">
+            <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
+            <span>{{ message }}</span>
+            <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
-    <!-- Footer -->
-    <footer class="bg-dark text-white py-5">
+    <main>{% block content %}{% endblock %}</main>
+
+    <footer class="site-footer">
         <div class="container">
-            <div class="row">
-                <div class="col-md-6 mb-4">
-                    <h5 class="mb-3">PythonCareers</h5>
-                    <p class="text-white-50">A platform dedicated to connecting Python developers with their dream jobs.</p>
+            <div class="footer-main">
+                <div>
+                    <a class="brand brand-light" href="{% url 'index' %}">
+                        <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
+                        <span>Python<span>Careers</span></span>
+                    </a>
+                    <p>Focused opportunities for Python people. Less noise, better matches, faster moves.</p>
                 </div>
-                <div class="col-md-6 mb-4 text-center text-md-end">
-                    <h6 class="mb-3">Connect With Us</h6>
-                    <div class="d-flex gap-3 justify-content-center justify-content-md-end">
-                        <a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" class="text-white-50">
-                            <i class="fab fa-linkedin fa-lg"></i>
-                            <span class="ms-2">Mahmoud Shaker</span>
-                        </a>
-                    </div>
+                <div class="footer-links">
+                    <div><span>Explore</span><a href="{% url 'job_list' %}">All jobs</a><a href="{% url 'job_list' %}?location=Remote">Remote jobs</a></div>
+                    <div><span>Stay connected</span><a href="{% url 'subscribe' %}">Job alerts</a><a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" rel="noopener">LinkedIn <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>
                 </div>
             </div>
-            <hr class="my-4">
-            <div class="row justify-content-center">
-                <div class="col-md-6 text-center">
-                    <p class="mb-0 text-white-50">© 2024 PythonCareers. All rights reserved.</p>
-                </div>
-            </div>
+            <div class="footer-bottom"><span>© {% now "Y" %} PythonCareers</span><span>Built for the Python community <i class="fa-solid fa-heart"></i></span></div>
         </div>
     </footer>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.min.js"></script>
-    <script>
-        AOS.init();
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
 </body>
 </html>

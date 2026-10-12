@@ -11,22 +11,52 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 from celery.schedules import crontab
+from django.core.exceptions import ImproperlyConfigured
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-668e@1ow-p%60qdxw1aerwel#y1-m=l*o5ar#c@e#tolk45g58'
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'local-development-key-change-in-production-8c4f2e7b1a9d6f3c5e0b',
+)
+if os.environ.get('VERCEL') and not os.environ.get('SECRET_KEY'):
+    raise ImproperlyConfigured('SECRET_KEY must be configured in Vercel.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+_debug_value = os.environ.get('DEBUG', '').lower()
+if _debug_value in {'1', 'true', 'yes', 'on'}:
+    DEBUG = True
+elif _debug_value in {'0', 'false', 'no', 'off'}:
+    DEBUG = False
+else:
+    DEBUG = not bool(os.environ.get('VERCEL'))
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost,.vercel.app').split(',')
+    if host.strip()
+]
+if os.environ.get('VERCEL_URL'):
+    ALLOWED_HOSTS.append(os.environ['VERCEL_URL'])
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get(
+        'CSRF_TRUSTED_ORIGINS',
+        'https://*.vercel.app',
+    ).split(',')
+    if origin.strip()
+]
 
 
 
@@ -51,6 +81,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -83,16 +114,24 @@ WSGI_APPLICATION = 'jobportal.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'jobportal',
-        'USER': 'postgres',
-        'PASSWORD': 'postgres',
-        'HOST': 'db',
-        'PORT': '5432',
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+    DATABASES = {
+        'default': dj_database_url.parse(
+            os.environ['DATABASE_URL'],
+            conn_max_age=0 if os.environ.get('VERCEL') else 60,
+            ssl_require=not DEBUG,
+        )
     }
-}
+else:
+    if os.environ.get('VERCEL'):
+        raise ImproperlyConfigured('DATABASE_URL must be configured in Vercel.')
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 
 
@@ -133,6 +172,14 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / "static"]
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+WHITENOISE_USE_FINDERS = DEBUG
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -140,17 +187,24 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'mahmoud.shaker123123@gmail.com'
-EMAIL_HOST_PASSWORD = 'oygf reyj sldi kmnn'
-DEFAULT_FROM_EMAIL = 'mahmoud.shaker123123@gmail.com'
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '1') == '1'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'alerts@pythoncareers.local')
 
 # Celery Configuration
-CELERY_BROKER_URL = 'redis://redis:6379/0'  # Internal Docker port (not the mapped port)
-CELERY_RESULT_BACKEND = 'redis://redis:6379/0'  # Internal Docker port (not the mapped port)
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', CELERY_BROKER_URL)
+CELERY_TASK_ALWAYS_EAGER = os.environ.get(
+    'CELERY_TASK_ALWAYS_EAGER',
+    '1' if 'CELERY_BROKER_URL' not in os.environ else '0',
+) == '1'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -160,7 +214,7 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_BEAT_SCHEDULE = {
     'scrape-jobs': {
         'task': 'jobs.tasks.scrape_jobs',
-        'schedule': 3600.0,  # Run every hour
+        'schedule': 18000.0,  # Run every 5 hours
     },
     'cleanup-old-jobs': {
         'task': 'jobs.tasks.cleanup_old_jobs',
@@ -171,3 +225,18 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': crontab(hour=8, minute=0),  # Run at 8 AM every day
     },
 }
+
+# Scheduled job collection and retention.
+CRON_SECRET = os.environ.get('CRON_SECRET', '')
+JOB_SYNC_LIMIT = int(os.environ.get('JOB_SYNC_LIMIT', '40'))
+JOB_SYNC_DELAY = float(os.environ.get('JOB_SYNC_DELAY', '0.05'))
+JOB_RETENTION_DAYS = int(os.environ.get('JOB_RETENTION_DAYS', '30'))
+
+# Vercel terminates TLS at its proxy.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG

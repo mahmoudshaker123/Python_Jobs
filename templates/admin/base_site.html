@@ -1,0 +1,23 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | PythonCareers{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'admin/pythoncareers-admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div class="pc-admin-brand">
+    <span class="pc-brand-mark">&lt;/&gt;</span>
+    <span><strong>PythonCareers</strong><small>Control Center</small></span>
+</div>
+{% endblock %}
+
+{% block nav-global %}
+<a class="pc-view-site" href="/" target="_blank">View website ↗</a>
+{% endblock %}

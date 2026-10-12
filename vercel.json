@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "django",
+  "functions": {
+    "jobportal/wsgi.py": {
+      "maxDuration": 300,
+      "excludeFiles": "{jobs/tests/**,temp/**,wuzzuf_page.html,celerybeat-schedule,docker-compose.yml,Dockerfile}"
+    }
+  }
+}

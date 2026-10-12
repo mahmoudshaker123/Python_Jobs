@@ -19,6 +19,8 @@ Thumbs.db
 # ملفات التكوين الحساسة
 .env
 *.env
+.env.local
+.vercel/
 
 # مجلد static أو media المؤقت
 staticfiles/

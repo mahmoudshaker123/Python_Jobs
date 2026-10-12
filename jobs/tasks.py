@@ -1,44 +1,22 @@
 from celery import shared_task
-import requests
-from bs4 import BeautifulSoup
-from .models import Job, Company, EmailSubscription
+from .models import Job, EmailSubscription
 from django.core.management import call_command
-from datetime import datetime, timedelta
+from datetime import timedelta
 import os
-from .scrapers import scrape_indeed, scrape_linkedin, scrape_glassdoor, get_random_job_data
 from django.utils import timezone
 import logging
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.conf import settings
-import time
 
 logger = logging.getLogger(__name__)
 
 @shared_task
 def scrape_jobs():
-    """
-    Task to scrape jobs from multiple sources
-    """
+    """Refresh every configured source without deleting data from failed sources."""
     try:
-        # For testing purposes, generate random job data
-        job_data = get_random_job_data()
-        
-        # Create or update the job
-        Job.objects.update_or_create(
-            job_url=job_data['job_url'],
-            defaults={
-                'title': job_data['title'],
-                'company': job_data['company'],
-                'location': job_data['location'],
-                'description': job_data['description'],
-                'requirement': job_data['requirement'],
-                'posted_at': job_data['posted_at'],
-                'source': 'Test'
-            }
-        )
-
+        call_command('update_jobs')
         logger.info("Job scraping completed successfully")
         return "Job scraping completed successfully"
 
@@ -56,21 +34,10 @@ def update_jobs():
     3. Clean up old jobs
     """
     try:
-        # Step 1: Scrape new jobs
-        scrape_result = scrape_wuzzuf_jobs.delay()
-        time.sleep(5)  # Wait for scraping to complete
-        
-        # Step 2: Import the scraped jobs
-        import_result = import_jobs_from_csv.delay()
-        time.sleep(5)  # Wait for import to complete
-        
-        # Step 3: Clean up old jobs
-        cleanup_result = cleanup_old_jobs.delay()
-        
+        call_command('update_jobs')
         return {
-            "scrape_result": scrape_result.get(),
-            "import_result": import_result.get(),
-            "cleanup_result": cleanup_result.get()
+            "scrape_result": "All sources refreshed",
+            "cleanup_result": "Expired jobs removed during refresh",
         }
     except Exception as e:
         return f"Error updating jobs: {str(e)}"
@@ -81,8 +48,8 @@ def cleanup_old_jobs():
     Task to remove jobs older than 30 days
     """
     try:
-        thirty_days_ago = datetime.now() - timedelta(days=30)
-        old_jobs = Job.objects.filter(created_at__lt=thirty_days_ago)
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        old_jobs = Job.objects.filter(posted_at__lt=thirty_days_ago)
         count = old_jobs.count()
         old_jobs.delete()
         return f"Successfully removed {count} old jobs"
@@ -95,17 +62,8 @@ def scrape_and_import_jobs():
     Task to scrape jobs from Wuzzuf and import them to the database
     """
     try:
-        # Step 1: Scrape jobs from Wuzzuf
-        scrape_result = scrape_wuzzuf_jobs.delay()
-        time.sleep(5)  # Wait for scraping to complete
-        
-        # Step 2: Import jobs from CSV
-        import_result = import_jobs_from_csv.delay()
-        
-        return {
-            "scrape_result": scrape_result.get(),
-            "import_result": import_result.get()
-        }
+        call_command('update_jobs')
+        return {"scrape_result": "All sources refreshed and imported"}
     except Exception as e:
         return f"Error in scrape_and_import_jobs: {str(e)}"
 
@@ -220,6 +178,9 @@ def send_welcome_email(subscriber_id):
     try:
         subscriber = EmailSubscription.objects.get(id=subscriber_id)
         
+        if not subscriber.is_active:
+            return f"Subscription {subscriber.email} is inactive"
+
         if not subscriber.welcome_email_sent:
             subject = 'Welcome to Python Career Newsletter!'
             html_message = render_to_string('jobs/email/welcome_email.html', {

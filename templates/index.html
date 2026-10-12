@@ -1,122 +1,90 @@
 {% extends "base.html" %}
 {% load static %}
-
-{% block title %}Home - PythonCareers{% endblock %}
-
+{% block title %}PythonCareers — Find work worth building{% endblock %}
 {% block content %}
-<!-- Hero Section -->
 <section class="hero-section">
-    <div class="hero-overlay"></div>
-    <div class="container position-relative">
-        <div class="row align-items-center min-vh-75">
-            <div class="col-lg-8 mx-auto text-center text-white">
-                <h1 class="display-4 fw-bold mb-4">Find Your Next Python Career</h1>
-                <p class="lead mb-4">
-                    Discover thousands of Python-related jobs from top companies worldwide. 
-                    Whether you're a beginner or an expert, find the perfect opportunity for you.
-                </p>
-                <div class="d-flex gap-2 justify-content-center">
-                    <a href="{% url 'job_list' %}" class="btn btn-light btn-lg">Browse Jobs</a>
+    <div class="hero-glow hero-glow-one"></div><div class="hero-glow hero-glow-two"></div>
+    <div class="container hero-content">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6 hero-copy">
+                <div class="eyebrow"><span></span> Curated for Python developers</div>
+                <h1>Find work worth <em>building.</em></h1>
+                <p>Discover focused Python roles from teams solving meaningful problems—without digging through irrelevant listings.</p>
+                <div class="hero-actions">
+                    <a href="{% url 'job_list' %}" class="btn btn-brand btn-lg">Explore open roles <i class="fa-solid fa-arrow-right"></i></a>
+                    <a href="#latest-jobs" class="text-link">See what’s new <i class="fa-solid fa-arrow-down"></i></a>
+                </div>
+                <div class="hero-proof">
+                    <div><strong>{{ jobs_count|default:0 }}+</strong><span>Open roles</span></div>
+                    <div><strong>{{ companies_count|default:0 }}+</strong><span>Hiring teams</span></div>
+                    <div><strong>100%</strong><span>Python focused</span></div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="hero-visual">
+                    <img src="{% static 'images/hero-careers.png' %}" alt="Developer exploring Python career opportunities" width="1776" height="887">
+                    <div class="floating-pill"><span class="live-dot"></span><strong>Fresh roles</strong> added regularly</div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Search Section -->
-<section class="search-section py-4 bg-white shadow-sm">
+<section class="search-dock" aria-label="Search jobs">
     <div class="container">
-        <form method="GET" action="{% url 'job_list' %}" class="row g-3 align-items-center">
-            <div class="col-md-4">
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0">
-                        <i class="fas fa-search text-muted"></i>
-                    </span>
-                    <input type="text" class="form-control border-start-0" name="title" 
-                           placeholder="Job title, keywords, or company" value="{{ request.GET.title }}">
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="input-group">
-                    <span class="input-group-text bg-white border-end-0">
-                        <i class="fas fa-map-marker-alt text-muted"></i>
-                    </span>
-                    <select class="form-select border-start-0" name="location">
-                        <option value="All Locations" {% if request.GET.location == 'All Locations' %}selected{% endif %}>All Locations</option>
-                        <option value="Remote" {% if request.GET.location == 'Remote' %}selected{% endif %}>Remote</option>
-                        <option value="Cairo" {% if request.GET.location == 'Cairo' %}selected{% endif %}>Cairo</option>
-                        <option value="Giza" {% if request.GET.location == 'Giza' %}selected{% endif %}>Giza</option>
-                        <option value="Alexandria" {% if request.GET.location == 'Alexandria' %}selected{% endif %}>Alexandria</option>
-                    </select>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <select class="form-select" name="job_type">
-                    <option value="">All Job Types</option>
-                    <option value="Full-time">Full-time</option>
-                    <option value="Part-time">Part-time</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Internship">Internship</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">Search Jobs</button>
-            </div>
+        <form method="get" action="{% url 'job_list' %}" class="search-panel">
+            <div class="search-field search-field-main"><i class="fa-solid fa-magnifying-glass"></i><div><label for="home-query">What do you want to build?</label><input id="home-query" name="q" type="search" placeholder="Django, Data Engineer, FastAPI…"></div></div>
+            <div class="search-field"><i class="fa-solid fa-location-dot"></i><div><label for="home-location">Where?</label><input id="home-location" name="location" type="text" placeholder="Remote or city"></div></div>
+            <button class="btn btn-brand" type="submit">Search jobs <i class="fa-solid fa-arrow-right"></i></button>
         </form>
     </div>
 </section>
 
-<!-- Latest Jobs -->
-<section class="latest-jobs py-5 bg-light">
+<section class="section-space" id="latest-jobs">
     <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>Latest Python Jobs</h2>
-            <a href="{% url 'job_list' %}" class="btn btn-outline-primary">View All Jobs</a>
+        <div class="section-heading">
+            <div><span class="section-kicker">Latest opportunities</span><h2>Your next commit could start here.</h2></div>
+            <a class="btn btn-soft" href="{% url 'job_list' %}">View all roles <i class="fa-solid fa-arrow-right"></i></a>
         </div>
+        {% if jobs %}
         <div class="row g-4">
             {% for job in jobs %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card job-card h-100 border-0 shadow-sm hover-shadow">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ job.title }}</h5>
-                        <p class="text-muted mb-2">{{ job.company.name }}</p>
-                        <div class="d-flex gap-2 mb-3">
-                            <span class="badge bg-light text-dark">
-                                <i class="fas fa-map-marker-alt text-muted me-1"></i>
-                                {{ job.location }}
-                            </span>
-                            <span class="badge bg-light text-dark">
-                                <i class="fas fa-briefcase text-muted me-1"></i>
-                                {{ job.job_type }}
-                            </span>
-                        </div>
-                        <p class="card-text text-muted mb-3">
-                            <small>Posted {{ job.created_at|timesince }} ago</small>
-                        </p>
-                        <a href="{% url 'job_detail' job.id %}" class="btn btn-primary w-100">Apply Now</a>
+            <div class="col-md-6 col-xl-4">
+                <article class="job-card">
+                    <div class="job-card-top">
+                        <div class="company-avatar">{% if job.company %}{{ job.company.name|slice:":1"|upper }}{% else %}P{% endif %}</div>
+                        <span class="fresh-badge"><i class="fa-solid fa-circle"></i> New</span>
                     </div>
-                </div>
+                    <div class="job-card-body">
+                        <p class="company-name">{% if job.company %}{{ job.company.name }}{% else %}Independent team{% endif %}</p>
+                        <h3><a href="{% url 'job_detail' job.id %}">{{ job.title }}</a></h3>
+                        <div class="job-meta"><span><i class="fa-solid fa-location-dot"></i> {{ job.location|default:"Flexible" }}</span><span><i class="fa-regular fa-clock"></i> {{ job.job_type }}</span></div>
+                    </div>
+                    <div class="job-card-footer"><span>{{ job.posted_at|timesince }} ago</span><a href="{% url 'job_detail' job.id %}" aria-label="View {{ job.title }}"><i class="fa-solid fa-arrow-right"></i></a></div>
+                </article>
             </div>
             {% endfor %}
         </div>
+        {% else %}
+        <div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-code-branch"></i></div><h3>Fresh roles are on the way</h3><p>We’re curating the next batch. Turn on alerts and be first to know.</p><a href="{% url 'subscribe' %}" class="btn btn-brand">Notify me</a></div>
+        {% endif %}
     </div>
 </section>
 
-<!-- Subscribe Section -->
-<section class="subscribe-section py-5 bg-primary text-white">
-    <div class="container text-center">
-        <h2 class="mb-4">Get Job Alerts in Your Inbox</h2>
-        <p class="lead mb-4">Stay updated with the latest Python job opportunities</p>
-        <form method="post" action="{% url 'subscribe' %}" class="row justify-content-center">
-            {% csrf_token %}
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="email" name="email" class="form-control form-control-lg" 
-                           placeholder="Enter your email address" required>
-                    <button type="submit" class="btn btn-light btn-lg">Subscribe</button>
-                </div>
-            </div>
-        </form>
+<section class="why-section section-space">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-5"><span class="section-kicker">Built differently</span><h2>A focused search, not another job board.</h2><p class="section-intro">Every part of PythonCareers is designed to help you spend less time searching and more time choosing.</p></div>
+            <div class="col-lg-7"><div class="feature-grid">
+                <div class="feature-card"><span><i class="fa-solid fa-filter-circle-dollar"></i></span><h3>Less noise</h3><p>Python-first results, searchable by role, company, location, and work type.</p></div>
+                <div class="feature-card"><span><i class="fa-solid fa-bolt"></i></span><h3>Fast discovery</h3><p>Scan the essentials quickly and open the complete role when it feels right.</p></div>
+                <div class="feature-card"><span><i class="fa-solid fa-shield-heart"></i></span><h3>Clear details</h3><p>Role context, expectations, and the original application link in one place.</p></div>
+            </div></div>
+        </div>
     </div>
+</section>
+
+<section class="newsletter-wrap">
+    <div class="container"><div class="newsletter-card"><div><span class="section-kicker light">Stay one step ahead</span><h2>The right role might arrive tomorrow.</h2><p>Get newly added Python opportunities delivered to your inbox.</p></div><form method="post" action="{% url 'subscribe' %}" class="newsletter-form">{% csrf_token %}<label class="visually-hidden" for="footer-email">Email address</label><div><i class="fa-regular fa-envelope"></i><input id="footer-email" type="email" name="email" placeholder="you@example.com" required></div><button class="btn btn-accent" type="submit">Join alerts <i class="fa-solid fa-arrow-right"></i></button></form></div></div>
 </section>
 {% endblock %}

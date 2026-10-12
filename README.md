@@ -1,7 +1,7 @@
 # Python Jobs Portal
 
 ## Project Overview
-The **Python Jobs Portal** is an innovative web application designed to aggregate job listings specifically for Python developers. By utilizing the latest web scraping techniques, automated task scheduling, and modern web frameworks, this platform makes it easier for Python developers to find relevant job opportunities.
+The **Python Jobs Portal** aggregates Python, Django, backend, and Odoo opportunities from Wuzzuf, Bayt, and Mourjan. Sources are isolated so a temporary block or outage on one website never removes jobs collected from the others.
 
 The project offers a seamless experience for both employers and job seekers. It collects job listings from multiple sources, updates them daily, and allows users to filter through various job categories. This makes it a one-stop destination for Python professionals seeking their next career opportunity.
 
@@ -9,6 +9,10 @@ The project offers a seamless experience for both employers and job seekers. It 
 
 ### Key Features:
 - **Automated Job Scraping:** The project uses Python’s BeautifulSoup library to scrape job listings from a variety of websites, ensuring that job seekers are always presented with the most up-to-date opportunities.
+
+- **Multi-source Safety:** Wuzzuf, Bayt, and Mourjan update independently. Existing records are preserved whenever a source returns an error, an empty page, or a browser challenge.
+
+- **Odoo Support:** Python and Odoo searches receive separate quotas, so Odoo results are not crowded out by larger Python result sets.
 
 - **Background Task Management:** Celery, with Redis as a message broker, is used to handle background tasks such as scraping job data and updating the site daily. This ensures that all job listings are refreshed in real-time.
 
@@ -38,6 +42,50 @@ The Python Jobs Portal is built with a modern and scalable technology stack:
 
 ### Web Scraping
 The job listings are scraped from several job boards and company websites using BeautifulSoup. The scraper is automated, running daily through Celery tasks.
+
+Run a complete refresh manually with:
+
+```bash
+python manage.py scrape_jobs
+```
+
+You can also select sources and cap each source independently:
+
+```bash
+python manage.py scrape_jobs --sources wuzzuf,mourjan --limit 40
+```
+
+Bayt may occasionally require an interactive browser challenge. In that case the command reports the block and preserves existing Bayt jobs; it does not try to bypass the website's protection.
+
+### Automatic updates
+
+`python manage.py update_jobs` refreshes every source, preserves sources that are temporarily unavailable, removes jobs older than 30 days, and records the result in the admin dashboard.
+
+Production updates are triggered every five hours by `.github/workflows/update-jobs.yml`. Add these repository secrets in GitHub:
+
+- `SITE_URL`: the production URL, for example `https://python-careers.vercel.app`
+- `CRON_SECRET`: the same random value configured in Vercel
+
+The endpoint `/api/cron/update-jobs/` rejects requests without the matching Bearer token and uses a database lock to prevent overlapping runs.
+
+Vercel Hobby only supports one native Cron invocation per day, so GitHub Actions is used for the five-hour schedule. Vercel Pro users may move the same schedule into `vercel.json`.
+
+## Vercel deployment
+
+1. Create a managed PostgreSQL database (Neon, Supabase, or another provider) and copy its connection URL.
+2. Import this Git repository into Vercel. Vercel detects `manage.py` and the Django WSGI application automatically.
+3. Add the variables from `.env.example` to Vercel, especially `DATABASE_URL`, `SECRET_KEY`, and `CRON_SECRET`.
+4. Run migrations against the production database from a trusted terminal:
+
+```bash
+vercel env pull .env.local
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+5. Deploy production and configure the matching `SITE_URL` and `CRON_SECRET` GitHub repository secrets.
+
+SQLite is retained only for local development. Production data must use the external PostgreSQL `DATABASE_URL` because Vercel Functions do not provide persistent local storage.
 
 ### Job Listings Storage
 The job data is stored in a PostgreSQL database, which is then displayed on the front-end of the application.

@@ -1,197 +1,143 @@
+import csv
+import time
+from pathlib import Path
+from urllib.parse import urljoin
+
 import requests
 from bs4 import BeautifulSoup
-import csv
-import os
-import time
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+from jobs.wuzzuf import extract_job
+
 
 class Command(BaseCommand):
-    help = 'Scrapes python and odoo jobs from Wuzzuf'
+    help = 'Scrape validated Python and Odoo jobs from Wuzzuf.'
 
-    def handle(self, *args, **kwargs):
-        # إنشاء مجلد temp إذا لم يكن موجودًا
-        temp_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'temp')
-        os.makedirs(temp_dir, exist_ok=True)
+    SEARCHES = (
+        'https://wuzzuf.net/search/jobs/?q=python&a=hpb',
+        'https://wuzzuf.net/search/jobs/?q=odoo%20developer&a=hpb',
+    )
+    CSV_FIELDS = (
+        'Title', 'Company', 'Location', 'Link', 'Job Description',
+        'Job Requirements', 'Experience', 'Salary', 'Job Type', 'Date Posted',
+    )
 
-        # تحديد مسار ملف CSV
-        csv_file = os.path.join(temp_dir, 'all_jobs.csv')
+    def add_arguments(self, parser):
+        parser.add_argument('--limit', type=int, default=50, help='Maximum jobs to collect.')
+        parser.add_argument('--delay', type=float, default=0.4, help='Delay between detail requests.')
 
-        # إرسال طلب GET
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
-            "Referer": "https://wuzzuf.net/",
-        }
+    @staticmethod
+    def session():
+        session = requests.Session()
+        retry = Retry(
+            total=3,
+            connect=3,
+            read=3,
+            backoff_factor=0.7,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=('GET',),
+        )
+        session.mount('https://', HTTPAdapter(max_retries=retry))
+        session.headers.update({
+            'User-Agent': (
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36'
+            ),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.8',
+            'Referer': 'https://wuzzuf.net/jobs/egypt',
+        })
+        return session
 
-        # فتح ملف CSV لتخزين البيانات
+    def handle(self, *args, **options):
+        limit = max(1, options['limit'])
+        delay = max(0, options['delay'])
+        csv_file = Path(__file__).resolve().parents[3] / 'temp' / 'all_jobs.csv'
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
+
+        collected = []
+        seen_urls = set()
+        session = self.session()
         try:
-            with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
-                writer = csv.writer(file)
-                writer.writerow(['Title', 'Company', 'Location', 'Link', 'Job Description', 'Job Requirements', 'Experience', 'Salary', 'Job Type'])
+            session.get('https://wuzzuf.net/jobs/egypt', timeout=20)
+        except requests.RequestException:
+            pass
 
-                # قائمة بالوظائف المطلوبة
-                job_types = [
-                    ('python', 'https://wuzzuf.net/search/jobs/?q=python&a=hpb'),
-                    ('odoo', 'https://wuzzuf.net/search/jobs/?q=odoo%20developer&a=hpb')
-                ]
+        for base_url in self.SEARCHES:
+            page = 0
+            while len(collected) < limit:
+                search_url = base_url if page == 0 else f'{base_url}&start={page}'
+                self.stdout.write(f'Loading search page {page + 1}: {search_url}')
+                try:
+                    response = session.get(search_url, timeout=25)
+                    response.raise_for_status()
+                    response.encoding = 'utf-8'
+                except requests.RequestException as exc:
+                    self.stderr.write(self.style.WARNING(f'Search page skipped: {exc}'))
+                    break
 
-                total_jobs_collected = 0
-                target_jobs = 50
+                soup = BeautifulSoup(response.text, 'html.parser')
+                links = []
+                for anchor in soup.find_all('a', href=lambda value: value and '/jobs/p/' in value):
+                    job_url = urljoin('https://wuzzuf.net', anchor['href']).split('?')[0]
+                    if job_url not in seen_urls:
+                        links.append((job_url, anchor.get_text(' ', strip=True)))
+                        seen_urls.add(job_url)
 
-                for job_type, base_url in job_types:
-                    self.stdout.write(f'\nجاري جمع وظائف {job_type}...')
-                    page = 1
+                if not links:
+                    break
 
-                    while total_jobs_collected < target_jobs:
-                        # رابط صفحة نتائج البحث مع رقم الصفحة
-                        url = f"{base_url}&start={page}"
-                        
-                        self.stdout.write(f'جاري تحميل الصفحة {page}...')
+                added_on_page = 0
+                for job_url, fallback_title in links:
+                    if len(collected) >= limit:
+                        break
+                    try:
+                        detail = session.get(job_url, timeout=25)
+                        detail.raise_for_status()
+                        detail.encoding = 'utf-8'
+                        job = extract_job(detail.text, job_url, fallback_title)
+                    except requests.RequestException as exc:
+                        self.stderr.write(self.style.WARNING(f'Detail skipped ({job_url}): {exc}'))
+                        continue
 
-                        try:
-                            response = requests.get(url, headers=headers)
-                            response.raise_for_status()
-                        except requests.RequestException as e:
-                            self.stdout.write(self.style.ERROR(f'حدث خطأ في تحميل الصفحة: {str(e)}'))
-                            break
+                    if not job:
+                        self.stderr.write(self.style.WARNING(f'No JobPosting data; skipped: {job_url}'))
+                        continue
 
-                        # تحليل الصفحة باستخدام BeautifulSoup
-                        soup = BeautifulSoup(response.text, 'html.parser')
+                    collected.append(job)
+                    added_on_page += 1
+                    self.stdout.write(self.style.SUCCESS(
+                        f"[{len(collected)}/{limit}] {job['title']} | {job['company']} | "
+                        f"{job['location']} | {job['job_type']}"
+                    ))
+                    if delay:
+                        time.sleep(delay)
 
-                        # البحث عن جميع الروابط التي تحتوي على وظائف
-                        job_links = soup.find_all('a', href=lambda x: x and '/jobs/p/' in x)
-                        
-                        if not job_links:
-                            self.stdout.write(self.style.WARNING('لم يتم العثور على المزيد من الوظائف'))
-                            break
+                if added_on_page == 0:
+                    break
+                page += 1
 
-                        self.stdout.write(self.style.SUCCESS(f'تم العثور على {len(job_links)} وظيفة في الصفحة {page}'))
+        if not collected:
+            raise CommandError('No valid jobs were collected; the existing CSV was left unchanged.')
 
-                        # معالجة كل وظيفة
-                        for index, link in enumerate(job_links, 1):
-                            if total_jobs_collected >= target_jobs:
-                                break
-
-                            try:
-                                job_url = "https://wuzzuf.net" + link['href'] if link['href'].startswith('/') else link['href']
-                                title = link.text.strip()
-                                
-                                self.stdout.write(f'\nجاري معالجة الوظيفة {total_jobs_collected + 1} من {target_jobs}: {title}')
-                                self.stdout.write(f'الرابط: {job_url}')
-
-                                # الحصول على تفاصيل الوظيفة
-                                try:
-                                    job_response = requests.get(job_url, headers=headers)
-                                    if job_response.status_code == 200:
-                                        job_soup = BeautifulSoup(job_response.text, 'html.parser')
-                                        
-                                        # استخراج معلومات الشركة والموقع
-                                        company = "Not available"
-                                        location = "Not available"
-                                        experience = "Not available"
-                                        salary = "Not available"
-                                        
-                                        # البحث عن معلومات الشركة
-                                        company_elem = job_soup.find('a', href=lambda x: x and '/jobs/careers/' in x)
-                                        if company_elem:
-                                            company = company_elem.text.strip().replace('-', '').strip()
-
-                                        # البحث عن الموقع - تحسين البحث
-                                        # أولاً: البحث في معلومات الوظيفة
-                                        job_info_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
-                                        if job_info_section:
-                                            # البحث عن عنصر الموقع
-                                            location_elem = job_info_section.find(['div', 'span'], {'class': lambda x: x and 'css-' in x and 'location' in str(x).lower()})
-                                            if location_elem:
-                                                location = location_elem.text.strip()
-                                            else:
-                                                # البحث عن أي نص يحتوي على الموقع
-                                                for elem in job_info_section.find_all(['div', 'span']):
-                                                    text = elem.text.strip().lower()
-                                                    if ('cairo' in text or 'egypt' in text) and not any(word in text for word in ['developer', 'engineer', 'specialist', 'manager']):
-                                                        location = elem.text.strip()
-                                                        break
-
-                                        # إذا لم نجد الموقع في القسم الرئيسي، نبحث في باقي الصفحة
-                                        if location == "Not available":
-                                            location_elem = job_soup.find(['div', 'span'], string=lambda x: x and ('cairo' in str(x).lower() or 'egypt' in str(x).lower()))
-                                            if location_elem and not any(word in location_elem.text.lower() for word in ['developer', 'engineer', 'specialist', 'manager']):
-                                                location = location_elem.text.strip()
-
-                                        # البحث عن الخبرة والراتب
-                                        job_info = job_soup.find_all(['div', 'span'], {'class': lambda x: x and 'css-' in x})
-                                        for info in job_info:
-                                            text = info.text.strip()
-                                            if 'experience' in text.lower():
-                                                experience = text
-                                            elif 'salary' in text.lower():
-                                                salary = text
-
-                                        # البحث عن الوصف والمتطلبات
-                                        job_desc = "Not available"
-                                        job_req = "Not available"
-                                        
-                                        # البحث عن قسم الوصف
-                                        desc_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
-                                        if desc_section:
-                                            # البحث عن جميع الفقرات في قسم الوصف
-                                            paragraphs = desc_section.find_all('p')
-                                            if paragraphs:
-                                                job_desc = '\n'.join(p.text.strip() for p in paragraphs)
-                                            else:
-                                                job_desc = desc_section.text.strip()
-
-                                        # البحث عن قسم المتطلبات
-                                        req_section = job_soup.find('div', {'class': 'css-1t5f0fr'})
-                                        if req_section:
-                                            # البحث عن قائمة المتطلبات
-                                            requirements_list = req_section.find_all('li')
-                                            if requirements_list:
-                                                job_req = '\n'.join(li.text.strip() for li in requirements_list)
-                                            else:
-                                                job_req = req_section.text.strip()
-
-                                        # إذا لم نجد الأقسام بالطريقة السابقة، نبحث عن أي نص يحتوي على الكلمات المفتاحية
-                                        if job_desc == "Not available":
-                                            desc_elem = job_soup.find(['div', 'p', 'span'], string=lambda x: x and 'description' in str(x).lower())
-                                            if desc_elem:
-                                                job_desc = desc_elem.find_next(['div', 'p', 'span']).text.strip()
-
-                                        if job_req == "Not available":
-                                            req_elem = job_soup.find(['div', 'p', 'span'], string=lambda x: x and 'requirements' in str(x).lower())
-                                            if req_elem:
-                                                job_req = req_elem.find_next(['div', 'p', 'span', 'ul']).text.strip()
-
-                                        # كتابة البيانات في الملف
-                                        writer.writerow([title, company, location, job_url, job_desc, job_req, experience, salary, job_type])
-                                        self.stdout.write(self.style.SUCCESS(f'تم حفظ بيانات الوظيفة {total_jobs_collected + 1}'))
-                                        total_jobs_collected += 1
-
-                                    else:
-                                        self.stdout.write(self.style.WARNING(f'فشل في تحميل تفاصيل الوظيفة: {job_url}'))
-
-                                except Exception as e:
-                                    self.stdout.write(self.style.ERROR(f'خطأ في تحميل تفاصيل الوظيفة: {str(e)}'))
-
-                                # إضافة تأخير لتجنب الحظر
-                                time.sleep(2)
-
-                            except Exception as e:
-                                self.stdout.write(self.style.ERROR(f'خطأ في معالجة الوظيفة: {str(e)}'))
-                                continue
-
-                        page += 1
-                        # إضافة تأخير بين الصفحات
-                        time.sleep(3)
-
-            self.stdout.write(self.style.SUCCESS(f'تم حفظ جميع البيانات في ملف {csv_file}'))
-            self.stdout.write(self.style.SUCCESS(f'تم جمع {total_jobs_collected} وظيفة من أصل {target_jobs}'))
-
-        except PermissionError:
-            self.stdout.write(self.style.ERROR('خطأ في الوصول إلى الملف. يرجى التأكد من إغلاق الملف إذا كان مفتوحاً في برنامج آخر.'))
-            return
-
-
-
-        
+        temporary_file = csv_file.with_suffix('.csv.tmp')
+        with temporary_file.open('w', newline='', encoding='utf-8-sig') as handle:
+            writer = csv.DictWriter(handle, fieldnames=self.CSV_FIELDS, lineterminator='\n')
+            writer.writeheader()
+            for job in collected:
+                writer.writerow({
+                    'Title': job['title'],
+                    'Company': job['company'],
+                    'Location': job['location'],
+                    'Link': job['job_url'],
+                    'Job Description': job['description'],
+                    'Job Requirements': job['requirements'],
+                    'Experience': job['experience'],
+                    'Salary': job['salary'],
+                    'Job Type': job['job_type'],
+                    'Date Posted': job['date_posted'],
+                })
+        temporary_file.replace(csv_file)
+        self.stdout.write(self.style.SUCCESS(f'Saved {len(collected)} validated jobs to {csv_file}'))

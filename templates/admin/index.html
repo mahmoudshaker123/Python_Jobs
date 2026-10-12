@@ -1,0 +1,40 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_dashboard %}
+
+{% block content %}
+{% dashboard_stats as stats %}
+<div class="pc-dashboard">
+    <section class="pc-welcome">
+        <div><span class="pc-kicker">OPERATIONS OVERVIEW</span><h1>Good to see you, {{ request.user.first_name|default:request.user.username }}.</h1><p>Monitor jobs, sources, subscribers, and automated collection from one place.</p></div>
+        {% if stats.latest_run %}<div class="pc-last-sync"><span>Last sync</span><strong>{{ stats.latest_run.get_status_display }}</strong><small>{{ stats.latest_run.started_at|timesince }} ago</small></div>{% endif %}
+    </section>
+
+    <section class="pc-stat-grid">
+        <a href="{% url 'admin:jobs_job_changelist' %}" class="pc-stat"><span class="pc-stat-icon blue">⌁</span><div><small>Total jobs</small><strong>{{ stats.jobs }}</strong><em>Across all sources</em></div></a>
+        <a href="{% url 'admin:jobs_job_changelist' %}?posted_at__gte={{ stats.latest_run.started_at|date:'Y-m-d' }}" class="pc-stat"><span class="pc-stat-icon violet">↗</span><div><small>Fresh today</small><strong>{{ stats.new_jobs }}</strong><em>Posted in 24 hours</em></div></a>
+        <a href="{% url 'admin:jobs_job_changelist' %}?q=odoo" class="pc-stat"><span class="pc-stat-icon orange">O</span><div><small>Odoo roles</small><strong>{{ stats.odoo_jobs }}</strong><em>Technical &amp; functional</em></div></a>
+        <a href="{% url 'admin:jobs_emailsubscription_changelist' %}?is_active__exact=1" class="pc-stat"><span class="pc-stat-icon green">✦</span><div><small>Subscribers</small><strong>{{ stats.subscribers }}</strong><em>Active job alerts</em></div></a>
+    </section>
+
+    <div class="pc-dashboard-grid">
+        <section class="pc-panel">
+            <div class="pc-panel-head"><div><span class="pc-kicker">MANAGE</span><h2>Workspace</h2></div></div>
+            {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+        </section>
+        <section class="pc-panel">
+            <div class="pc-panel-head"><div><span class="pc-kicker">AUTOMATION</span><h2>Recent syncs</h2></div><a href="{% url 'admin:jobs_jobsyncrun_changelist' %}">View all</a></div>
+            <div class="pc-run-list">
+                {% for run in stats.recent_runs %}
+                <a href="{% url 'admin:jobs_jobsyncrun_change' run.pk %}" class="pc-run">
+                    <span class="pc-run-dot {{ run.status }}"></span>
+                    <div><strong>{{ run.get_status_display }}</strong><small>{{ run.trigger }} · {{ run.started_at|date:"M d, H:i" }}</small></div>
+                    <em>{% if run.finished_at %}{{ run.finished_at|timesince:run.started_at }}{% else %}Running{% endif %}</em>
+                </a>
+                {% empty %}<div class="pc-empty">No automated runs yet.</div>{% endfor %}
+            </div>
+        </section>
+    </div>
+</div>
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
