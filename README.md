@@ -75,6 +75,9 @@ Vercel Hobby only supports one native Cron invocation per day, so GitHub Actions
 1. Create a managed PostgreSQL database (Neon, Supabase, or another provider) and copy its connection URL.
 2. Import this Git repository into Vercel. Vercel detects `manage.py` and the Django WSGI application automatically.
 3. Add the variables from `.env.example` to Vercel, especially `DATABASE_URL`, `SECRET_KEY`, and `CRON_SECRET`.
+
+The Vercel build can inspect the Django project before those variables are available, using build-only fallback settings. The deployed application still requires both `SECRET_KEY` and `DATABASE_URL` at runtime and will fail closed if either is missing. After adding or changing an environment variable, redeploy so the new deployment receives it.
+
 4. Run migrations against the production database from a trusted terminal:
 
 ```bash

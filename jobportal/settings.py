@@ -25,12 +25,20 @@ load_dotenv(BASE_DIR / '.env')
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get(
-    'SECRET_KEY',
-    'local-development-key-change-in-production-8c4f2e7b1a9d6f3c5e0b',
-)
-if os.environ.get('VERCEL') and not os.environ.get('SECRET_KEY'):
+IS_VERCEL = os.environ.get('VERCEL') == '1'
+# Vercel exposes CI only while building. Framework detection imports Django
+# settings before a project owner may have finished configuring environment
+# variables, so build-time settings must remain importable.
+IS_VERCEL_BUILD = IS_VERCEL and os.environ.get('CI') == '1'
+
+_configured_secret_key = os.environ.get('SECRET_KEY')
+if IS_VERCEL and not IS_VERCEL_BUILD and not _configured_secret_key:
     raise ImproperlyConfigured('SECRET_KEY must be configured in Vercel.')
+SECRET_KEY = _configured_secret_key or (
+    'vercel-build-only-key-not-used-at-runtime'
+    if IS_VERCEL_BUILD
+    else 'local-development-key-change-in-production-8c4f2e7b1a9d6f3c5e0b'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 _debug_value = os.environ.get('DEBUG', '').lower()
@@ -39,7 +47,7 @@ if _debug_value in {'1', 'true', 'yes', 'on'}:
 elif _debug_value in {'0', 'false', 'no', 'off'}:
     DEBUG = False
 else:
-    DEBUG = not bool(os.environ.get('VERCEL'))
+    DEBUG = not IS_VERCEL
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -119,12 +127,12 @@ if os.environ.get('DATABASE_URL'):
     DATABASES = {
         'default': dj_database_url.parse(
             os.environ['DATABASE_URL'],
-            conn_max_age=0 if os.environ.get('VERCEL') else 60,
+            conn_max_age=0 if IS_VERCEL else 60,
             ssl_require=not DEBUG,
         )
     }
 else:
-    if os.environ.get('VERCEL'):
+    if IS_VERCEL and not IS_VERCEL_BUILD:
         raise ImproperlyConfigured('DATABASE_URL must be configured in Vercel.')
     DATABASES = {
         'default': {
