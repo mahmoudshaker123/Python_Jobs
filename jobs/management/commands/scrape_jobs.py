@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from jobs.job_sources import SCRAPERS, SourceUnavailable
+from jobs.job_sources import SCRAPERS, SourceUnavailable, is_allowed_linkedin_location
 from jobs.models import Company, Job
 
 
@@ -79,6 +79,15 @@ class Command(BaseCommand):
                     stale = Job.objects.filter(source=source_name).exclude(job_url__in=source_urls)
                     removed_count = stale.count()
                     stale.delete()
+                if source_name == 'LinkedIn':
+                    disallowed_ids = [
+                        job.pk
+                        for job in Job.objects.filter(source='LinkedIn').only('pk', 'location')
+                        if not is_allowed_linkedin_location(job.location)
+                    ]
+                    if disallowed_ids:
+                        removed_count += len(disallowed_ids)
+                        Job.objects.filter(pk__in=disallowed_ids).delete()
 
             totals['new'] += created_count
             totals['updated'] += updated_count

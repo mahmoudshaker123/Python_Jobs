@@ -291,8 +291,38 @@ LINKEDIN_SEARCHES = (
 )
 
 LINKEDIN_RELEVANCE_TERMS = (
-    'odoo', 'python', 'django', 'fastapi', 'flask',
+    'odoo', 'erp', 'python', 'django', 'fastapi', 'flask',
 )
+
+LINKEDIN_SEARCH_SCOPES = (
+    ('Middle East and North Africa', False),
+    ('Egypt', False),
+    ('Worldwide', True),
+)
+
+ARAB_LOCATION_TERMS = (
+    'egypt', 'united arab emirates', 'uae', 'saudi arabia', 'ksa',
+    'qatar', 'kuwait', 'bahrain', 'oman', 'jordan', 'lebanon', 'iraq',
+    'morocco', 'tunisia', 'algeria', 'libya', 'palestine', 'palestinian',
+    'yemen', 'sudan', 'syria', 'mauritania', 'somalia', 'djibouti', 'comoros',
+)
+
+REMOTE_LOCATION_TERMS = (
+    'remote', 'remotely', 'work from home', 'work-from-home', 'anywhere',
+    'worldwide',
+)
+
+
+def _contains_location_term(location, term):
+    return bool(re.search(rf'(?<!\w){re.escape(term)}(?!\w)', location, re.I))
+
+
+def is_allowed_linkedin_location(location):
+    location = clean_text(location)
+    return any(
+        _contains_location_term(location, term)
+        for term in ARAB_LOCATION_TERMS + REMOTE_LOCATION_TERMS
+    )
 
 
 def _linkedin_posted_at(value):
@@ -383,52 +413,76 @@ def scrape_linkedin(limit=40, delay=0.2, output=None):
 
     for index, keywords in enumerate(LINKEDIN_SEARCHES):
         query_limit = quota if index < len(LINKEDIN_SEARCHES) - 1 else limit - len(jobs)
-        params = {
-            'keywords': keywords,
-            'location': 'Worldwide',
-            'f_TPR': 'r2592000',
-            'start': 0,
-        }
-        search_url = (
-            'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?'
-            f'{urlencode(params)}'
-        )
-        try:
-            listing_jobs = parse_linkedin_listing(fetch_html(session, search_url))
-            successful_pages += 1
-        except (requests.RequestException, SourceUnavailable) as exc:
-            if output:
-                output(f'LinkedIn {keywords} page skipped: {exc}')
-            continue
+        keyword_added = 0
+        for scope_index, (location, remote_only) in enumerate(LINKEDIN_SEARCH_SCOPES):
+            if keyword_added >= query_limit or len(jobs) >= limit:
+                break
+            scopes_left = len(LINKEDIN_SEARCH_SCOPES) - scope_index
+            scope_limit = max(1, (query_limit - keyword_added + scopes_left - 1) // scopes_left)
+            params = {
+                'keywords': keywords,
+                'location': location,
+                'f_TPR': 'r2592000',
+                'start': 0,
+            }
+            if remote_only:
+                params['f_WT'] = '2'
+            search_url = (
+                'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?'
+                f'{urlencode(params)}'
+            )
+            try:
+                listing_jobs = parse_linkedin_listing(fetch_html(session, search_url))
+                successful_pages += 1
+            except (requests.RequestException, SourceUnavailable) as exc:
+                if output:
+                    output(f'LinkedIn {keywords} / {location} page skipped: {exc}')
+                continue
 
-        added = 0
-        for job in listing_jobs:
-            if job['linkedin_id'] in seen or added >= query_limit or len(jobs) >= limit:
-                continue
-            if not any(term in job['title'].lower() for term in LINKEDIN_RELEVANCE_TERMS):
-                continue
-            seen.add(job['linkedin_id'])
-            if detail_budget:
-                detail_url = (
-                    'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/'
-                    f"{job['linkedin_id']}"
-                )
-                try:
-                    details = parse_linkedin_detail(fetch_html(session, detail_url))
-                    if details['description']:
-                        job['description'] = details['description']
-                    if details['requirements']:
-                        job['requirements'] = details['requirements']
-                    job['job_type'] = details['job_type']
-                except (requests.RequestException, SourceUnavailable) as exc:
-                    if output:
-                        output(f"LinkedIn job {job['linkedin_id']} details skipped: {exc}")
-                detail_budget -= 1
-            job.pop('linkedin_id', None)
-            jobs.append(job)
-            added += 1
-            if delay and detail_budget:
-                time.sleep(max(delay, 0.4))
+            scope_added = 0
+            for job in listing_jobs:
+                if (
+                    job['linkedin_id'] in seen
+                    or scope_added >= scope_limit
+                    or keyword_added >= query_limit
+                    or len(jobs) >= limit
+                ):
+                    continue
+                if not any(term in job['title'].lower() for term in LINKEDIN_RELEVANCE_TERMS):
+                    continue
+                if remote_only:
+                    if not any(
+                        _contains_location_term(job['location'], term)
+                        for term in REMOTE_LOCATION_TERMS
+                    ):
+                        job['location'] = f"Remote — {job['location']}"
+                elif not is_allowed_linkedin_location(job['location']):
+                    continue
+                seen.add(job['linkedin_id'])
+                if detail_budget:
+                    detail_url = (
+                        'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/'
+                        f"{job['linkedin_id']}"
+                    )
+                    try:
+                        details = parse_linkedin_detail(fetch_html(session, detail_url))
+                        if details['description']:
+                            job['description'] = details['description']
+                        if details['requirements']:
+                            job['requirements'] = details['requirements']
+                        job['job_type'] = details['job_type']
+                    except (requests.RequestException, SourceUnavailable) as exc:
+                        if output:
+                            output(f"LinkedIn job {job['linkedin_id']} details skipped: {exc}")
+                    detail_budget -= 1
+                job.pop('linkedin_id', None)
+                jobs.append(job)
+                scope_added += 1
+                keyword_added += 1
+                if delay and detail_budget:
+                    time.sleep(max(delay, 0.4))
+            if delay:
+                time.sleep(max(delay, 0.25))
 
     if not successful_pages:
         raise SourceUnavailable('LinkedIn did not return an accessible public jobs page')

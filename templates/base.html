@@ -4,9 +4,24 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Curated Python opportunities for developers ready to make their next move.">
+    <meta name="description" content="Python and Odoo jobs across Egypt and the Arab world, plus remote opportunities worldwide.">
     <meta name="theme-color" content="#071426">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="PythonCareers">
+    <meta property="og:title" content="PythonCareers — Python & Odoo jobs">
+    <meta property="og:description" content="Discover Python and Odoo opportunities across Egypt and the Arab world, plus remote roles worldwide.">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}">
+    <meta property="og:image:width" content="1776">
+    <meta property="og:image:height" content="887">
+    <meta property="og:image:alt" content="PythonCareers job opportunities">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="PythonCareers — Python & Odoo jobs">
+    <meta name="twitter:description" content="Python and Odoo opportunities across Egypt and the Arab world, plus remote roles worldwide.">
+    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}">
     <title>{% block title %}PythonCareers{% endblock %}</title>
+    <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
+    <link rel="shortcut icon" href="{% static 'images/favicon.svg' %}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">

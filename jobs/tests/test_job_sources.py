@@ -2,6 +2,7 @@ from django.test import SimpleTestCase
 
 from jobs.job_sources import (
     parse_bayt_listing,
+    is_allowed_linkedin_location,
     parse_linkedin_detail,
     parse_linkedin_listing,
     parse_mourjan_listing,
@@ -42,6 +43,13 @@ class MourjanParserTest(SimpleTestCase):
 
 
 class LinkedInParserTest(SimpleTestCase):
+    def test_allows_arab_locations_and_worldwide_remote_only(self):
+        self.assertTrue(is_allowed_linkedin_location('Cairo, Egypt'))
+        self.assertTrue(is_allowed_linkedin_location('Riyadh, Saudi Arabia'))
+        self.assertTrue(is_allowed_linkedin_location('Remote — Berlin, Germany'))
+        self.assertFalse(is_allowed_linkedin_location('Berlin, Germany'))
+        self.assertFalse(is_allowed_linkedin_location('Bengaluru, India'))
+
     def test_extracts_public_job_card_and_canonical_url(self):
         html = '''
         <li><div class="base-search-card" data-entity-urn="urn:li:jobPosting:123456">

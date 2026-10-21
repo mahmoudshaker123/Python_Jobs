@@ -32,6 +32,9 @@ class JobViewsTest(TestCase):
         response = self.client.get(reverse('index'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Find work worth')
+        self.assertContains(response, 'images/favicon.svg')
+        self.assertContains(response, 'property="og:image"')
+        self.assertContains(response, 'name="twitter:card"')
 
     def test_searches_title_company_location_and_type(self):
         response = self.client.get(reverse('job_list'), {
