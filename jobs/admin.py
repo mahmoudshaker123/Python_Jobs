@@ -36,7 +36,12 @@ class JobAdmin(admin.ModelAdmin):
 
     @admin.display(description='Source', ordering='source')
     def source_badge(self, obj):
-        css = {'Wuzzuf': 'blue', 'Mourjan': 'green', 'Bayt': 'orange'}.get(obj.source, 'neutral')
+        css = {
+            'Wuzzuf': 'blue',
+            'Mourjan': 'green',
+            'Bayt': 'orange',
+            'LinkedIn': 'blue',
+        }.get(obj.source, 'neutral')
         return format_html('<span class="pc-badge pc-badge-{}">{}</span>', css, obj.source or 'Unknown')
 
     @admin.display(description='Listing')

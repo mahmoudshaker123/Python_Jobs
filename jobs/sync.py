@@ -42,6 +42,7 @@ def run_job_update(trigger='manual', *, sources=None, limit=None, delay=None):
         command_options = {
             'limit': limit or settings.JOB_SYNC_LIMIT,
             'delay': settings.JOB_SYNC_DELAY if delay is None else delay,
+            'keep_stale': True,
             'stdout': stdout,
             'stderr': stderr,
         }

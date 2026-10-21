@@ -3,7 +3,7 @@ name: Refresh job listings
 on:
   workflow_dispatch:
   schedule:
-    - cron: "23 */5 * * *"
+    - cron: "23 * * * *"
 
 concurrency:
   group: pythoncareers-job-refresh

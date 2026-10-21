@@ -6,13 +6,13 @@ from jobs.models import Company, Job
 
 
 class Command(BaseCommand):
-    help = 'Collect Python and Odoo jobs from Wuzzuf, Bayt, and Mourjan.'
+    help = 'Collect Python and Odoo jobs from all configured public sources.'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--sources',
             default=','.join(SCRAPERS),
-            help='Comma-separated sources: wuzzuf,bayt,mourjan',
+            help=f"Comma-separated sources: {','.join(SCRAPERS)}",
         )
         parser.add_argument('--limit', type=int, default=40, help='Maximum jobs per source.')
         parser.add_argument('--delay', type=float, default=0.2, help='Delay between public page requests.')

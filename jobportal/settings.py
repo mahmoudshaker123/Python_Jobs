@@ -222,7 +222,7 @@ CELERY_TIMEZONE = 'UTC'
 CELERY_BEAT_SCHEDULE = {
     'scrape-jobs': {
         'task': 'jobs.tasks.scrape_jobs',
-        'schedule': 18000.0,  # Run every 5 hours
+        'schedule': 3600.0,  # Run every hour
     },
     'cleanup-old-jobs': {
         'task': 'jobs.tasks.cleanup_old_jobs',

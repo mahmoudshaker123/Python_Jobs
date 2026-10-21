@@ -1,7 +1,7 @@
 import re
 import time
-from datetime import timedelta
-from urllib.parse import urljoin, urlparse
+from datetime import datetime, time as datetime_time, timedelta
+from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
 from bs4 import BeautifulSoup
@@ -71,8 +71,10 @@ def parse_relative_date(value):
 
 def scrape_wuzzuf(limit=40, delay=0.2, output=None):
     searches = (
-        ('Python', 'https://wuzzuf.net/search/jobs/?q=python&a=hpb'),
-        ('Odoo', 'https://wuzzuf.net/search/jobs/?q=odoo%20developer&a=hpb'),
+        ('Odoo Developer', 'https://wuzzuf.net/search/jobs/?q=odoo%20developer&a=hpb'),
+        ('Odoo Implementer', 'https://wuzzuf.net/search/jobs/?q=odoo%20implementer&a=hpb'),
+        ('Python Developer', 'https://wuzzuf.net/search/jobs/?q=python%20developer&a=hpb'),
+        ('Python Backend', 'https://wuzzuf.net/search/jobs/?q=python%20django%20backend&a=hpb'),
     )
     session = build_session('https://wuzzuf.net/jobs/egypt')
     jobs = []
@@ -171,8 +173,10 @@ def parse_bayt_listing(html, base_url='https://www.bayt.com'):
 
 def scrape_bayt(limit=40, delay=0.2, output=None):
     searches = (
-        'https://www.bayt.com/en/international/jobs/python-jobs/',
-        'https://www.bayt.com/en/international/jobs/odoo-jobs/',
+        'https://www.bayt.com/en/international/jobs/odoo-developer-jobs/',
+        'https://www.bayt.com/en/international/jobs/odoo-consultant-jobs/',
+        'https://www.bayt.com/en/international/jobs/python-developer-jobs/',
+        'https://www.bayt.com/en/international/jobs/python-django-jobs/',
     )
     session = build_session('https://www.bayt.com/')
     jobs = []
@@ -277,8 +281,163 @@ def scrape_mourjan(limit=40, delay=0.2, output=None):
     return jobs
 
 
+LINKEDIN_SEARCHES = (
+    'Odoo Developer',
+    'Odoo Functional Consultant',
+    'Odoo Implementer',
+    'Python Developer',
+    'Python Backend Developer',
+    'Django Developer',
+)
+
+LINKEDIN_RELEVANCE_TERMS = (
+    'odoo', 'python', 'django', 'fastapi', 'flask',
+)
+
+
+def _linkedin_posted_at(value):
+    value = clean_text(value)
+    if value:
+        try:
+            parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            if timezone.is_naive(parsed):
+                parsed = timezone.make_aware(
+                    datetime.combine(parsed.date(), datetime_time.min),
+                    timezone.get_current_timezone(),
+                )
+            return parsed
+        except ValueError:
+            pass
+    return timezone.now()
+
+
+def parse_linkedin_listing(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    jobs = []
+    seen = set()
+    for card in soup.select('[data-entity-urn*="jobPosting:"]'):
+        urn = card.get('data-entity-urn', '')
+        match = re.search(r'jobPosting:(\d+)', urn)
+        title_node = card.select_one('.base-search-card__title')
+        if not match or not title_node:
+            continue
+        job_id = match.group(1)
+        if job_id in seen:
+            continue
+        seen.add(job_id)
+        company_node = card.select_one('.base-search-card__subtitle')
+        location_node = card.select_one('.job-search-card__location')
+        date_node = card.select_one('time[datetime]')
+        jobs.append({
+            'linkedin_id': job_id,
+            'title': clean_text(title_node.get_text(' ', strip=True)),
+            'company': clean_text(company_node.get_text(' ', strip=True)) if company_node else 'Company not disclosed',
+            'location': clean_text(location_node.get_text(' ', strip=True)) if location_node else 'Location not specified',
+            'job_url': f'https://www.linkedin.com/jobs/view/{job_id}/',
+            'description': 'Description available on the original LinkedIn job post.',
+            'requirements': 'See the original LinkedIn job post for full requirements.',
+            'job_type': 'Full-time',
+            'posted_at': _linkedin_posted_at(date_node.get('datetime', '') if date_node else ''),
+            'source': 'LinkedIn',
+        })
+    return jobs
+
+
+def parse_linkedin_detail(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    description_node = soup.select_one('.show-more-less-html__markup')
+    description = clean_text(description_node.get_text(' ', strip=True)) if description_node else ''
+    criteria = {}
+    for item in soup.select('.description__job-criteria-item'):
+        label = item.select_one('.description__job-criteria-subheader')
+        value = item.select_one('.description__job-criteria-text')
+        if label and value:
+            criteria[clean_text(label.get_text(' ', strip=True)).lower()] = clean_text(
+                value.get_text(' ', strip=True)
+            )
+    employment_type = criteria.get('employment type', '')
+    job_type = 'Full-time'
+    for candidate in ('Part-time', 'Contract', 'Internship', 'Freelance'):
+        if candidate.lower() in employment_type.lower():
+            job_type = candidate
+            break
+    requirements = '; '.join(
+        f'{label.title()}: {value}'
+        for label, value in criteria.items()
+        if label in {'seniority level', 'employment type', 'job function', 'industries'}
+    )
+    return {
+        'description': description,
+        'requirements': requirements,
+        'job_type': job_type,
+    }
+
+
+def scrape_linkedin(limit=40, delay=0.2, output=None):
+    session = build_session('https://www.linkedin.com/jobs/search/')
+    jobs = []
+    seen = set()
+    successful_pages = 0
+    quota = max(1, limit // len(LINKEDIN_SEARCHES))
+    detail_budget = min(limit, 12)
+
+    for index, keywords in enumerate(LINKEDIN_SEARCHES):
+        query_limit = quota if index < len(LINKEDIN_SEARCHES) - 1 else limit - len(jobs)
+        params = {
+            'keywords': keywords,
+            'location': 'Worldwide',
+            'f_TPR': 'r2592000',
+            'start': 0,
+        }
+        search_url = (
+            'https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?'
+            f'{urlencode(params)}'
+        )
+        try:
+            listing_jobs = parse_linkedin_listing(fetch_html(session, search_url))
+            successful_pages += 1
+        except (requests.RequestException, SourceUnavailable) as exc:
+            if output:
+                output(f'LinkedIn {keywords} page skipped: {exc}')
+            continue
+
+        added = 0
+        for job in listing_jobs:
+            if job['linkedin_id'] in seen or added >= query_limit or len(jobs) >= limit:
+                continue
+            if not any(term in job['title'].lower() for term in LINKEDIN_RELEVANCE_TERMS):
+                continue
+            seen.add(job['linkedin_id'])
+            if detail_budget:
+                detail_url = (
+                    'https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/'
+                    f"{job['linkedin_id']}"
+                )
+                try:
+                    details = parse_linkedin_detail(fetch_html(session, detail_url))
+                    if details['description']:
+                        job['description'] = details['description']
+                    if details['requirements']:
+                        job['requirements'] = details['requirements']
+                    job['job_type'] = details['job_type']
+                except (requests.RequestException, SourceUnavailable) as exc:
+                    if output:
+                        output(f"LinkedIn job {job['linkedin_id']} details skipped: {exc}")
+                detail_budget -= 1
+            job.pop('linkedin_id', None)
+            jobs.append(job)
+            added += 1
+            if delay and detail_budget:
+                time.sleep(max(delay, 0.4))
+
+    if not successful_pages:
+        raise SourceUnavailable('LinkedIn did not return an accessible public jobs page')
+    return jobs[:limit]
+
+
 SCRAPERS = {
     'wuzzuf': ('Wuzzuf', scrape_wuzzuf),
     'bayt': ('Bayt', scrape_bayt),
     'mourjan': ('Mourjan', scrape_mourjan),
+    'linkedin': ('LinkedIn', scrape_linkedin),
 }

@@ -44,6 +44,7 @@ class CronUpdateTest(TestCase):
         self.assertEqual(run.status, 'success')
         self.assertEqual(run.jobs_removed, 1)
         call_command_mock.assert_called_once()
+        self.assertTrue(call_command_mock.call_args.kwargs['keep_stale'])
 
     @patch('jobs.sync.call_command')
     def test_overlapping_run_is_skipped(self, call_command_mock):

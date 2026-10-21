@@ -61,14 +61,14 @@ Bayt may occasionally require an interactive browser challenge. In that case the
 
 `python manage.py update_jobs` refreshes every source, preserves sources that are temporarily unavailable, removes jobs older than 30 days, and records the result in the admin dashboard.
 
-Production updates are triggered every five hours by `.github/workflows/update-jobs.yml`. Add these repository secrets in GitHub:
+Production updates are triggered every hour by `.github/workflows/update-jobs.yml`. Add these repository secrets in GitHub:
 
 - `SITE_URL`: the production URL, for example `https://python-careers.vercel.app`
 - `CRON_SECRET`: the same random value configured in Vercel
 
 The endpoint `/api/cron/update-jobs/` rejects requests without the matching Bearer token and uses a database lock to prevent overlapping runs.
 
-Vercel Hobby only supports one native Cron invocation per day, so GitHub Actions is used for the five-hour schedule. Vercel Pro users may move the same schedule into `vercel.json`.
+Vercel Hobby only supports one native Cron invocation per day, so GitHub Actions is used for the hourly schedule. Vercel Pro users may move the same schedule into `vercel.json`.
 
 ## Vercel deployment
 
