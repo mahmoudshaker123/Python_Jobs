@@ -35,6 +35,8 @@ class JobViewsTest(TestCase):
         self.assertContains(response, 'images/favicon.svg')
         self.assertContains(response, 'property="og:image"')
         self.assertContains(response, 'name="twitter:card"')
+        self.assertContains(response, 'Mahmoud Shaker')
+        self.assertContains(response, 'https://www.linkedin.com/in/mahmoud-shaker889/')
 
     def test_searches_title_company_location_and_type(self):
         response = self.client.get(reverse('job_list'), {
