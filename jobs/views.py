@@ -3,21 +3,30 @@ import secrets
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from .forms import SubscriberForm
-from .models import Job
+from .models import EmailSubscription, Job
+from .notifications import send_matching_alerts, send_unsent_welcome_emails
 from .sync import run_job_update
 
 
 def index(request):
     jobs = Job.objects.select_related('company').order_by('-posted_at')[:6]
+    category_counts = list(
+        Job.objects.values('category').annotate(count=Count('id'))
+        .order_by('-count')[:8]
+    )
+    category_labels = dict(Job.Category.choices)
+    for item in category_counts:
+        item['label'] = category_labels.get(item['category'], item['category'])
     return render(request, 'index.html', {
         'jobs': jobs,
         'jobs_count': Job.objects.count(),
         'companies_count': Job.objects.exclude(company=None).values('company').distinct().count(),
+        'category_counts': category_counts,
     })
 
 
@@ -26,6 +35,7 @@ def job_list(request):
     search_location = request.GET.get('location', '').strip()
     job_type = request.GET.get('job_type', '').strip()
     source = request.GET.get('source', '').strip()
+    category = request.GET.get('category', '').strip()
 
     jobs = Job.objects.select_related('company').order_by('-posted_at')
     if search_title:
@@ -40,6 +50,8 @@ def job_list(request):
         jobs = jobs.filter(job_type=job_type)
     if source:
         jobs = jobs.filter(source=source)
+    if category:
+        jobs = jobs.filter(category=category)
 
     paginator = Paginator(jobs, 12)
     page_obj = paginator.get_page(request.GET.get('page'))
@@ -64,6 +76,8 @@ def job_list(request):
         'search_location': search_location,
         'selected_job_type': job_type,
         'selected_source': source,
+        'selected_category': category,
+        'categories': Job.Category.choices,
         'job_types': Job.JOB_TYPE_CHOICES,
         'locations': locations,
         'sources': sources,
@@ -84,11 +98,45 @@ def subscribe(request):
     form = SubscriberForm(request.POST or None)
     if request.method == 'POST':
         if form.is_valid():
-            form.save()
-            messages.success(request, 'Welcome aboard! Your job alerts are now active.')
+            subscription = form.save()
+            messages.success(
+                request,
+                f'Your tailored alerts are active for {subscription.email}.',
+            )
             return redirect('index')
-        messages.error(request, 'Please check the email address and try again.')
+        messages.error(request, 'Please review the highlighted fields and try again.')
     return render(request, 'subscribe.html', {'form': form})
+
+
+def manage_subscription(request, token):
+    subscription = get_object_or_404(EmailSubscription, manage_token=token)
+    initial = {
+        'email': subscription.email,
+        'categories': subscription.categories,
+        'location_preference': subscription.location_preference,
+        'job_types': subscription.job_types,
+        'frequency': subscription.frequency,
+    }
+    form = SubscriberForm(request.POST or None, initial=initial, subscription=subscription)
+    if request.method == 'POST' and form.is_valid():
+        form.save(subscription=subscription)
+        messages.success(request, 'Your alert preferences have been updated.')
+        return redirect('manage_subscription', token=subscription.manage_token)
+    return render(request, 'subscribe.html', {
+        'form': form,
+        'subscription': subscription,
+        'is_manage': True,
+    })
+
+
+def unsubscribe(request, token):
+    subscription = get_object_or_404(EmailSubscription, manage_token=token)
+    if request.method == 'POST':
+        subscription.is_active = False
+        subscription.save(update_fields=('is_active',))
+        messages.success(request, 'Job alerts have been turned off for this email.')
+        return redirect('index')
+    return render(request, 'unsubscribe.html', {'subscription': subscription})
 
 
 def cron_update_jobs(request):
@@ -110,3 +158,13 @@ def cron_update_jobs(request):
         'expired_jobs_removed': run.jobs_removed,
         'finished_at': run.finished_at.isoformat() if run.finished_at else None,
     }, status=status_code)
+
+
+def cron_send_alerts(request):
+    expected = f'Bearer {settings.CRON_SECRET}'
+    supplied = request.headers.get('Authorization', '')
+    if not settings.CRON_SECRET or not secrets.compare_digest(supplied, expected):
+        return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=401)
+    welcome = send_unsent_welcome_emails(limit=settings.ALERT_BATCH_SIZE)
+    alerts = send_matching_alerts(max_subscribers=settings.ALERT_BATCH_SIZE)
+    return JsonResponse({'ok': alerts['failed'] == 0, 'welcome': welcome, 'alerts': alerts})

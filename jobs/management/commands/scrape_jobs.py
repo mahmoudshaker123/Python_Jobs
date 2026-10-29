@@ -2,11 +2,12 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from jobs.job_sources import SCRAPERS, SourceUnavailable, is_allowed_linkedin_location
+from jobs.classification import classify_job
 from jobs.models import Company, Job
 
 
 class Command(BaseCommand):
-    help = 'Collect Python and Odoo jobs from all configured public sources.'
+    help = 'Collect technology and ERP jobs from all configured public sources.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -54,6 +55,11 @@ class Command(BaseCommand):
             created_count = updated_count = removed_count = 0
             with transaction.atomic():
                 for data in jobs:
+                    category, skills = classify_job(
+                        data.get('title'),
+                        data.get('description'),
+                        data.get('requirements'),
+                    )
                     company, _ = Company.objects.get_or_create(
                         name=data.get('company') or 'Company not disclosed',
                         defaults={'location': data.get('location') or '', 'description': ''},
@@ -66,6 +72,8 @@ class Command(BaseCommand):
                         'requirement': data.get('requirements') or 'See the original job post.',
                         'job_type': data.get('job_type') or 'Full-time',
                         'source': source_name,
+                        'category': data.get('category') or category,
+                        'skills': data.get('skills') or skills,
                     }
                     if data.get('posted_at'):
                         defaults['posted_at'] = data['posted_at']

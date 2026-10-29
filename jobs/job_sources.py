@@ -10,10 +10,25 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .wuzzuf import clean_text, extract_job
+from .classification import classify_job
 
 
 class SourceUnavailable(RuntimeError):
     """Raised when a source blocks or cannot serve a usable jobs page."""
+
+
+def rotating_batch(values, size):
+    """Rotate broad searches hourly so serverless runs stay within their time limit."""
+    values = tuple(values)
+    if len(values) <= size:
+        return values
+    batch_count = (len(values) + size - 1) // size
+    batch_index = int(timezone.now().timestamp() // 3600) % batch_count
+    start = batch_index * size
+    batch = values[start:start + size]
+    if len(batch) < size:
+        batch += values[:size - len(batch)]
+    return batch
 
 
 def build_session(referer=None):
@@ -70,12 +85,31 @@ def parse_relative_date(value):
 
 
 def scrape_wuzzuf(limit=40, delay=0.2, output=None):
-    searches = (
+    all_searches = (
         ('Odoo Developer', 'https://wuzzuf.net/search/jobs/?q=odoo%20developer&a=hpb'),
         ('Odoo Implementer', 'https://wuzzuf.net/search/jobs/?q=odoo%20implementer&a=hpb'),
+        ('ERP Consultant', 'https://wuzzuf.net/search/jobs/?q=erp%20consultant&a=hpb'),
+        ('SAP Consultant', 'https://wuzzuf.net/search/jobs/?q=sap%20consultant&a=hpb'),
+        ('Dynamics 365', 'https://wuzzuf.net/search/jobs/?q=dynamics%20365&a=hpb'),
         ('Python Developer', 'https://wuzzuf.net/search/jobs/?q=python%20developer&a=hpb'),
         ('Python Backend', 'https://wuzzuf.net/search/jobs/?q=python%20django%20backend&a=hpb'),
+        ('Software Engineer', 'https://wuzzuf.net/search/jobs/?q=software%20engineer&a=hpb'),
+        ('Frontend Developer', 'https://wuzzuf.net/search/jobs/?q=frontend%20developer&a=hpb'),
+        ('Full Stack Developer', 'https://wuzzuf.net/search/jobs/?q=full%20stack%20developer&a=hpb'),
+        ('DevOps Engineer', 'https://wuzzuf.net/search/jobs/?q=devops%20engineer&a=hpb'),
+        ('Cloud Engineer', 'https://wuzzuf.net/search/jobs/?q=cloud%20engineer&a=hpb'),
+        ('System Administrator', 'https://wuzzuf.net/search/jobs/?q=system%20administrator&a=hpb'),
+        ('Network Engineer', 'https://wuzzuf.net/search/jobs/?q=network%20engineer&a=hpb'),
+        ('IT Support', 'https://wuzzuf.net/search/jobs/?q=it%20support&a=hpb'),
+        ('Data Analyst', 'https://wuzzuf.net/search/jobs/?q=data%20analyst&a=hpb'),
+        ('Data Engineer', 'https://wuzzuf.net/search/jobs/?q=data%20engineer&a=hpb'),
+        ('Power BI', 'https://wuzzuf.net/search/jobs/?q=power%20bi&a=hpb'),
+        ('Machine Learning', 'https://wuzzuf.net/search/jobs/?q=machine%20learning%20engineer&a=hpb'),
+        ('Cyber Security', 'https://wuzzuf.net/search/jobs/?q=cyber%20security&a=hpb'),
+        ('QA Engineer', 'https://wuzzuf.net/search/jobs/?q=qa%20engineer&a=hpb'),
+        ('Business Analyst', 'https://wuzzuf.net/search/jobs/?q=business%20analyst&a=hpb'),
     )
+    searches = rotating_batch(all_searches, 8)
     session = build_session('https://wuzzuf.net/jobs/egypt')
     jobs = []
     seen = set()
@@ -172,12 +206,25 @@ def parse_bayt_listing(html, base_url='https://www.bayt.com'):
 
 
 def scrape_bayt(limit=40, delay=0.2, output=None):
-    searches = (
+    searches = rotating_batch((
         'https://www.bayt.com/en/international/jobs/odoo-developer-jobs/',
         'https://www.bayt.com/en/international/jobs/odoo-consultant-jobs/',
+        'https://www.bayt.com/en/international/jobs/erp-consultant-jobs/',
+        'https://www.bayt.com/en/international/jobs/sap-consultant-jobs/',
         'https://www.bayt.com/en/international/jobs/python-developer-jobs/',
         'https://www.bayt.com/en/international/jobs/python-django-jobs/',
-    )
+        'https://www.bayt.com/en/international/jobs/software-engineer-jobs/',
+        'https://www.bayt.com/en/international/jobs/full-stack-developer-jobs/',
+        'https://www.bayt.com/en/international/jobs/devops-engineer-jobs/',
+        'https://www.bayt.com/en/international/jobs/cloud-engineer-jobs/',
+        'https://www.bayt.com/en/international/jobs/it-support-jobs/',
+        'https://www.bayt.com/en/international/jobs/network-engineer-jobs/',
+        'https://www.bayt.com/en/international/jobs/data-analyst-jobs/',
+        'https://www.bayt.com/en/international/jobs/data-engineer-jobs/',
+        'https://www.bayt.com/en/international/jobs/power-bi-jobs/',
+        'https://www.bayt.com/en/international/jobs/cyber-security-jobs/',
+        'https://www.bayt.com/en/international/jobs/qa-engineer-jobs/',
+    ), 8)
     session = build_session('https://www.bayt.com/')
     jobs = []
     seen = set()
@@ -288,10 +335,37 @@ LINKEDIN_SEARCHES = (
     'Python Developer',
     'Python Backend Developer',
     'Django Developer',
+    'ERP Consultant',
+    'SAP Consultant',
+    'Microsoft Dynamics 365 Consultant',
+    'Software Engineer',
+    'Backend Developer',
+    'Frontend Developer',
+    'Full Stack Developer',
+    'Mobile Developer',
+    'DevOps Engineer',
+    'Site Reliability Engineer',
+    'Cloud Engineer',
+    'AWS Engineer',
+    'Azure Engineer',
+    'Data Analyst',
+    'Data Engineer',
+    'Power BI Developer',
+    'Data Scientist',
+    'Machine Learning Engineer',
+    'IT Support Engineer',
+    'System Administrator',
+    'Network Engineer',
+    'Cyber Security Engineer',
+    'QA Automation Engineer',
+    'Business Analyst',
 )
 
 LINKEDIN_RELEVANCE_TERMS = (
-    'odoo', 'erp', 'python', 'django', 'fastapi', 'flask',
+    'odoo', 'erp', 'python', 'django', 'fastapi', 'flask', 'developer',
+    'engineer', 'devops', 'cloud', 'data', 'power bi', 'administrator',
+    'network', 'security', 'quality assurance', 'qa ', 'business analyst',
+    'sap', 'dynamics 365',
 )
 
 LINKEDIN_SEARCH_SCOPES = (
@@ -408,11 +482,12 @@ def scrape_linkedin(limit=40, delay=0.2, output=None):
     jobs = []
     seen = set()
     successful_pages = 0
-    quota = max(1, limit // len(LINKEDIN_SEARCHES))
+    searches = rotating_batch(LINKEDIN_SEARCHES, 10)
+    quota = max(1, limit // len(searches))
     detail_budget = min(limit, 12)
 
-    for index, keywords in enumerate(LINKEDIN_SEARCHES):
-        query_limit = quota if index < len(LINKEDIN_SEARCHES) - 1 else limit - len(jobs)
+    for index, keywords in enumerate(searches):
+        query_limit = quota if index < len(searches) - 1 else limit - len(jobs)
         keyword_added = 0
         for scope_index, (location, remote_only) in enumerate(LINKEDIN_SEARCH_SCOPES):
             if keyword_added >= query_limit or len(jobs) >= limit:
@@ -489,9 +564,73 @@ def scrape_linkedin(limit=40, delay=0.2, output=None):
     return jobs[:limit]
 
 
+def scrape_arbeitnow(limit=40, delay=0.2, output=None):
+    """Collect relevant worldwide-remote technology roles from Arbeitnow's API."""
+    session = build_session('https://www.arbeitnow.com/')
+    jobs = []
+    seen = set()
+    page = 1
+    while len(jobs) < limit and page <= 8:
+        try:
+            response = session.get(
+                'https://www.arbeitnow.com/api/job-board-api',
+                params={'page': page},
+                timeout=25,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            if not jobs:
+                raise SourceUnavailable(f'Arbeitnow API unavailable: {exc}') from exc
+            break
+        rows = payload.get('data') or []
+        if not rows:
+            break
+        for row in rows:
+            if not row.get('remote'):
+                continue
+            title = clean_text(row.get('title'))
+            description = clean_text(BeautifulSoup(row.get('description') or '', 'html.parser').get_text(' '))
+            category, skills = classify_job(title)
+            if category == 'other':
+                continue
+            _, skills = classify_job(title, description)
+            url = row.get('url')
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            created_at = row.get('created_at')
+            try:
+                posted_at = datetime.fromtimestamp(int(created_at), tz=timezone.get_current_timezone())
+            except (TypeError, ValueError, OSError):
+                posted_at = timezone.now()
+            jobs.append({
+                'title': title,
+                'company': clean_text(row.get('company_name')) or 'Company not disclosed',
+                'location': f"Remote - {clean_text(row.get('location')) or 'Worldwide'}",
+                'job_url': url,
+                'description': description or 'See the original Arbeitnow job post.',
+                'requirements': ', '.join(row.get('tags') or []) or 'See the original job post.',
+                'job_type': 'Full-time',
+                'posted_at': posted_at,
+                'source': 'Arbeitnow',
+                'category': category,
+                'skills': skills,
+            })
+            if len(jobs) >= limit:
+                break
+        page += 1
+        if delay:
+            time.sleep(delay)
+    if not jobs:
+        raise SourceUnavailable('Arbeitnow returned no matching remote technology jobs')
+    return jobs
+
+
 SCRAPERS = {
     'wuzzuf': ('Wuzzuf', scrape_wuzzuf),
     'bayt': ('Bayt', scrape_bayt),
     'mourjan': ('Mourjan', scrape_mourjan),
     'linkedin': ('LinkedIn', scrape_linkedin),
+    'arbeitnow': ('Arbeitnow', scrape_arbeitnow),
 }

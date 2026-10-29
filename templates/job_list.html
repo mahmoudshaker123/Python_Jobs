@@ -1,39 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Browse Python & Odoo jobs — PythonCareers{% endblock %}
+{% block title %}Browse technology jobs — MENA Tech Careers{% endblock %}
 {% block content %}
-<section class="page-hero">
-    <div class="container"><div class="eyebrow"><span></span> Your next opportunity</div><h1>Python &amp; Odoo jobs, minus the noise.</h1><p>Search focused software roles gathered from trusted job sources across multiple countries.</p></div>
-</section>
-<section class="jobs-shell">
-    <div class="container">
-        <form method="get" action="{% url 'job_list' %}" class="filter-bar">
-            <div class="filter-field filter-grow"><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="{{ search_title }}" placeholder="Role, skill, or company" aria-label="Role, skill, or company"></div>
-            <div class="filter-field"><i class="fa-solid fa-location-dot"></i><select name="location" aria-label="Location"><option value="">All locations</option>{% for location in locations %}<option value="{{ location }}" {% if search_location == location %}selected{% endif %}>{{ location }}</option>{% endfor %}</select></div>
-            <div class="filter-field"><i class="fa-solid fa-briefcase"></i><select name="job_type" aria-label="Job type"><option value="">All work types</option>{% for value, label in job_types %}<option value="{{ value }}" {% if selected_job_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-            <div class="filter-field"><i class="fa-solid fa-layer-group"></i><select name="source" aria-label="Job source"><option value="">All sources</option>{% for source in sources %}<option value="{{ source }}" {% if selected_source == source %}selected{% endif %}>{{ source }}</option>{% endfor %}</select></div>
-            <button class="btn btn-brand" type="submit">Find roles</button>
-        </form>
-        <div class="results-heading"><div><span class="section-kicker">Explore roles</span><h2>{% if search_title %}Results for “{{ search_title }}”{% else %}Python &amp; Odoo opportunities{% endif %}</h2></div><p><strong>{{ page_obj.paginator.count }}</strong> role{{ page_obj.paginator.count|pluralize }} found</p></div>
-        {% if page_obj.object_list %}
-        <div class="job-list-stack">
-            {% for job in page_obj %}
-            <article class="job-row">
-                <div class="company-avatar large">{% if job.company %}{{ job.company.name|slice:":1"|upper }}{% else %}P{% endif %}</div>
-                <div class="job-row-main"><div class="job-row-title"><div><p>{% if job.company %}{{ job.company.name }}{% else %}Independent team{% endif %}</p><h3><a href="{% url 'job_detail' job.id %}">{{ job.title }}</a></h3></div><span class="fresh-badge"><i class="fa-solid fa-circle"></i> {{ job.source|default:"Curated" }}</span></div><div class="job-meta"><span><i class="fa-solid fa-location-dot"></i> {{ job.location|default:"Flexible" }}</span><span><i class="fa-solid fa-briefcase"></i> {{ job.job_type }}</span><span><i class="fa-regular fa-clock"></i> Posted {{ job.posted_at|timesince }} ago</span></div></div>
-                <a class="row-arrow" href="{% url 'job_detail' job.id %}" aria-label="View {{ job.title }}"><i class="fa-solid fa-arrow-right"></i></a>
-            </article>
-            {% endfor %}
-        </div>
-        {% if page_obj.paginator.num_pages > 1 %}
-        <nav class="pagination-wrap" aria-label="Jobs pagination"><ul class="pagination">
-            {% if page_obj.has_previous %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.previous_page_number }}" aria-label="Previous"><i class="fa-solid fa-arrow-left"></i></a></li>{% endif %}
-            {% for num in page_obj.paginator.page_range %}{% if page_obj.number == num %}<li><span class="current">{{ num }}</span></li>{% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ num }}">{{ num }}</a></li>{% endif %}{% endfor %}
-            {% if page_obj.has_next %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.next_page_number }}" aria-label="Next"><i class="fa-solid fa-arrow-right"></i></a></li>{% endif %}
-        </ul></nav>
-        {% endif %}
-        {% else %}
-        <div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div><h3>No exact matches yet</h3><p>Try a broader title, another location, or clear the filters to see every role.</p><a href="{% url 'job_list' %}" class="btn btn-brand">Clear all filters</a></div>
-        {% endif %}
-    </div>
-</section>
+<section class="page-hero"><div class="container"><div class="eyebrow"><span></span> Your next opportunity</div><h1>Technology &amp; ERP jobs, minus the noise.</h1><p>Search Software, ERP, Data, Cloud, DevOps, IT, Security, QA and product roles from multiple sources.</p></div></section>
+<section class="jobs-shell"><div class="container"><form method="get" action="{% url 'job_list' %}" class="filter-bar tech-filters"><div class="filter-field filter-grow"><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="{{ search_title }}" placeholder="Role, skill, or company" aria-label="Role, skill, or company"></div><div class="filter-field"><i class="fa-solid fa-layer-group"></i><select name="category" aria-label="Category"><option value="">All categories</option>{% for value, label in categories %}<option value="{{ value }}" {% if selected_category == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div><div class="filter-field"><i class="fa-solid fa-location-dot"></i><select name="location" aria-label="Location"><option value="">All locations</option>{% for location in locations %}<option value="{{ location }}" {% if search_location == location %}selected{% endif %}>{{ location }}</option>{% endfor %}</select></div><div class="filter-field"><i class="fa-solid fa-briefcase"></i><select name="job_type" aria-label="Job type"><option value="">All work types</option>{% for value, label in job_types %}<option value="{{ value }}" {% if selected_job_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div><div class="filter-field"><i class="fa-solid fa-globe"></i><select name="source" aria-label="Job source"><option value="">All sources</option>{% for source in sources %}<option value="{{ source }}" {% if selected_source == source %}selected{% endif %}>{{ source }}</option>{% endfor %}</select></div><button class="btn btn-brand" type="submit">Find roles</button></form>
+<div class="results-heading"><div><span class="section-kicker">Explore roles</span><h2>{% if search_title %}Results for “{{ search_title }}”{% else %}Technology opportunities{% endif %}</h2></div><p><strong>{{ page_obj.paginator.count }}</strong> role{{ page_obj.paginator.count|pluralize }} found</p></div>
+{% if page_obj.object_list %}<div class="job-list-stack">{% for job in page_obj %}<article class="job-row"><div class="company-avatar large">{% if job.company %}{{ job.company.name|slice:":1"|upper }}{% else %}T{% endif %}</div><div class="job-row-main"><div class="job-row-title"><div><p>{% if job.company %}{{ job.company.name }}{% else %}Independent team{% endif %}</p><h3><a href="{% url 'job_detail' job.id %}">{{ job.title }}</a></h3></div><span class="fresh-badge"><i class="fa-solid fa-circle"></i> {{ job.get_category_display }}</span></div><div class="job-meta"><span><i class="fa-solid fa-location-dot"></i> {{ job.location|default:"Flexible" }}</span><span><i class="fa-solid fa-briefcase"></i> {{ job.job_type }}</span><span><i class="fa-solid fa-globe"></i> {{ job.source }}</span><span><i class="fa-regular fa-clock"></i> {{ job.posted_at|timesince }} ago</span></div></div><a class="row-arrow" href="{% url 'job_detail' job.id %}" aria-label="View {{ job.title }}"><i class="fa-solid fa-arrow-right"></i></a></article>{% endfor %}</div>
+{% if page_obj.paginator.num_pages > 1 %}<nav class="pagination-wrap" aria-label="Jobs pagination"><ul class="pagination">{% if page_obj.has_previous %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.previous_page_number }}"><i class="fa-solid fa-arrow-left"></i></a></li>{% endif %}{% for num in page_obj.paginator.page_range %}{% if page_obj.number == num %}<li><span class="current">{{ num }}</span></li>{% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ num }}">{{ num }}</a></li>{% endif %}{% endfor %}{% if page_obj.has_next %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.next_page_number }}"><i class="fa-solid fa-arrow-right"></i></a></li>{% endif %}</ul></nav>{% endif %}
+{% else %}<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-magnifying-glass"></i></div><h3>No exact matches yet</h3><p>Try another category or clear the filters to see every role.</p><a href="{% url 'job_list' %}" class="btn btn-brand">Clear all filters</a></div>{% endif %}</div></section>
 {% endblock %}

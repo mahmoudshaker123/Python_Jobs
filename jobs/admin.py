@@ -1,11 +1,11 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Company, EmailSubscription, Job, JobSyncRun
+from .models import Company, EmailSubscription, Job, JobAlertDelivery, JobSyncRun
 
 
-admin.site.site_header = 'PythonCareers Control Center'
-admin.site.site_title = 'PythonCareers Admin'
+admin.site.site_header = 'MENA Tech Careers Control Center'
+admin.site.site_title = 'MENA Tech Careers Admin'
 admin.site.index_title = 'Operations overview'
 admin.site.index_template = 'admin/index.html'
 
@@ -20,8 +20,8 @@ class CompanyAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('title', 'company', 'location', 'type_badge', 'source_badge', 'posted_at', 'open_listing')
-    list_filter = ('job_type', 'source', 'posted_at')
+    list_display = ('title', 'company', 'category', 'location', 'type_badge', 'source_badge', 'posted_at', 'open_listing')
+    list_filter = ('category', 'job_type', 'source', 'posted_at')
     search_fields = ('title', 'company__name', 'location', 'description', 'requirement')
     autocomplete_fields = ('company',)
     date_hierarchy = 'posted_at'
@@ -56,12 +56,13 @@ class JobAdmin(admin.ModelAdmin):
 
 @admin.register(EmailSubscription)
 class EmailSubscriptionAdmin(admin.ModelAdmin):
-    list_display = ('email', 'is_active', 'welcome_email_sent', 'created_at')
-    list_filter = ('is_active', 'welcome_email_sent')
+    list_display = ('email', 'location_preference', 'frequency', 'is_active', 'welcome_email_sent', 'last_alert_sent_at', 'created_at')
+    list_filter = ('is_active', 'welcome_email_sent', 'location_preference', 'frequency')
     search_fields = ('email',)
     ordering = ('-created_at',)
     list_per_page = 30
     actions = ('activate_subscriptions', 'deactivate_subscriptions')
+    readonly_fields = ('manage_token', 'last_alert_sent_at', 'last_email_error')
 
     @admin.action(description='Activate selected subscriptions')
     def activate_subscriptions(self, request, queryset):
@@ -70,6 +71,18 @@ class EmailSubscriptionAdmin(admin.ModelAdmin):
     @admin.action(description='Deactivate selected subscriptions')
     def deactivate_subscriptions(self, request, queryset):
         queryset.update(is_active=False)
+
+
+@admin.register(JobAlertDelivery)
+class JobAlertDeliveryAdmin(admin.ModelAdmin):
+    list_display = ('subscriber', 'job', 'sent_at')
+    search_fields = ('subscriber__email', 'job__title')
+    list_filter = ('sent_at', 'job__category', 'job__source')
+    readonly_fields = ('subscriber', 'job', 'sent_at')
+    date_hierarchy = 'sent_at'
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(JobSyncRun)

@@ -1,5 +1,9 @@
 from celery import shared_task
 from .models import Job, EmailSubscription
+from .notifications import (
+    send_matching_alerts,
+    send_welcome_email as deliver_welcome_email,
+)
 from django.core.management import call_command
 from datetime import timedelta
 import os
@@ -72,76 +76,15 @@ def send_job_notifications(job_id):
     """
     Send email notifications about new jobs to all subscribers
     """
-    try:
-        job = Job.objects.get(id=job_id)
-        subscribers = EmailSubscription.objects.filter(is_active=True)
-        
-        for subscriber in subscribers:
-            # Prepare email content
-            subject = f'New Job Alert: {job.title}'
-            html_message = render_to_string('jobs/email/job_notification.html', {
-                'job': job,
-                'subscriber': subscriber,
-            })
-            plain_message = strip_tags(html_message)
-            
-            # Send email
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[subscriber.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            
-        logger.info(f"Job notifications sent successfully for job ID: {job_id}")
-        return f"Notifications sent for job ID: {job_id}"
-        
-    except Exception as e:
-        logger.error(f"Error sending job notifications: {str(e)}")
-        raise
+    Job.objects.get(id=job_id)
+    return send_matching_alerts()
 
 @shared_task
 def send_daily_job_digest():
     """
     Send daily digest of new jobs to all subscribers
     """
-    try:
-        # Get jobs from the last 24 hours
-        yesterday = timezone.now() - timedelta(days=1)
-        new_jobs = Job.objects.filter(posted_at__gte=yesterday)
-        
-        if not new_jobs.exists():
-            return "No new jobs to send in digest"
-            
-        subscribers = EmailSubscription.objects.filter(is_active=True)
-        
-        for subscriber in subscribers:
-            # Prepare email content
-            subject = 'Daily Job Digest'
-            html_message = render_to_string('jobs/email/daily_digest.html', {
-                'jobs': new_jobs,
-                'subscriber': subscriber,
-            })
-            plain_message = strip_tags(html_message)
-            
-            # Send email
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[subscriber.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            
-        logger.info("Daily job digest sent successfully")
-        return "Daily job digest sent"
-        
-    except Exception as e:
-        logger.error(f"Error sending daily job digest: {str(e)}")
-        raise
+    return send_matching_alerts()
 
 @shared_task
 def scrape_wuzzuf_jobs():
@@ -181,30 +124,11 @@ def send_welcome_email(subscriber_id):
         if not subscriber.is_active:
             return f"Subscription {subscriber.email} is inactive"
 
-        if not subscriber.welcome_email_sent:
-            subject = 'Welcome to Python Career Newsletter!'
-            html_message = render_to_string('jobs/email/welcome_email.html', {
-                'subscriber': subscriber,
-            })
-            plain_message = strip_tags(html_message)
-            
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[subscriber.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-            
-            # Mark the welcome email as sent
-            subscriber.welcome_email_sent = True
-            subscriber.save()
-            
-            logger.info(f"Welcome email sent to {subscriber.email}")
-            return f"Welcome email sent to {subscriber.email}"
-        else:
-            return f"Welcome email already sent to {subscriber.email}"
+        sent = deliver_welcome_email(subscriber)
+        return (
+            f"Welcome email sent to {subscriber.email}"
+            if sent else f"Welcome email already sent to {subscriber.email}"
+        )
             
     except EmailSubscription.DoesNotExist:
         logger.error(f"Subscriber with ID {subscriber_id} not found")

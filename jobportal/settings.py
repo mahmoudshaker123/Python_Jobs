@@ -204,7 +204,9 @@ EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '1') == '1'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'alerts@pythoncareers.local')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'MENA Tech Careers <alerts@localhost>')
+PUBLIC_SITE_URL = os.environ.get('PUBLIC_SITE_URL', 'https://python-jobs.vercel.app')
+ALERT_BATCH_SIZE = int(os.environ.get('ALERT_BATCH_SIZE', '25'))
 
 # Celery Configuration
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://redis:6379/0')
@@ -236,7 +238,7 @@ CELERY_BEAT_SCHEDULE = {
 
 # Scheduled job collection and retention.
 CRON_SECRET = os.environ.get('CRON_SECRET', '')
-JOB_SYNC_LIMIT = int(os.environ.get('JOB_SYNC_LIMIT', '40'))
+JOB_SYNC_LIMIT = int(os.environ.get('JOB_SYNC_LIMIT', '80'))
 JOB_SYNC_DELAY = float(os.environ.get('JOB_SYNC_DELAY', '0.05'))
 JOB_RETENTION_DAYS = int(os.environ.get('JOB_RETENTION_DAYS', '30'))
 

@@ -1,88 +1,10 @@
 {% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Python and Odoo jobs across Egypt and the Arab world, plus remote opportunities worldwide.">
-    <meta name="theme-color" content="#071426">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="PythonCareers">
-    <meta property="og:title" content="PythonCareers — Python & Odoo jobs">
-    <meta property="og:description" content="Discover Python and Odoo opportunities across Egypt and the Arab world, plus remote roles worldwide.">
-    <meta property="og:url" content="{{ request.build_absolute_uri }}">
-    <meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}">
-    <meta property="og:image:width" content="1776">
-    <meta property="og:image:height" content="887">
-    <meta property="og:image:alt" content="PythonCareers job opportunities">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="PythonCareers — Python & Odoo jobs">
-    <meta name="twitter:description" content="Python and Odoo opportunities across Egypt and the Arab world, plus remote roles worldwide.">
-    <meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}">
-    <title>{% block title %}PythonCareers{% endblock %}</title>
-    <link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml">
-    <link rel="shortcut icon" href="{% static 'images/favicon.svg' %}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'styles.css' %}">
-</head>
-<body>
-    <header class="site-header sticky-top">
-        <nav class="navbar navbar-expand-lg" aria-label="Primary navigation">
-            <div class="container">
-                <a class="brand" href="{% url 'index' %}" aria-label="PythonCareers home">
-                    <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
-                    <span>Python<span>Careers</span></span>
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <i class="fa-solid fa-bars"></i>
-                </button>
-                <div class="collapse navbar-collapse" id="mainNav">
-                    <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2">
-                        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'index' %}">Home</a></li>
-                        <li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'job_list' or request.resolver_match.url_name == 'job_detail' %}active{% endif %}" href="{% url 'job_list' %}">Browse jobs</a></li>
-                        <li class="nav-item ms-lg-2"><a class="btn btn-nav" href="{% url 'subscribe' %}"><i class="fa-regular fa-bell"></i> Get job alerts</a></li>
-                    </ul>
-                </div>
-            </div>
-        </nav>
-    </header>
-
-    {% if messages %}
-    <div class="toast-stack container" aria-live="polite">
-        {% for message in messages %}
-        <div class="site-alert site-alert-{{ message.tags }}">
-            <i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i>
-            <span>{{ message }}</span>
-            <button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    <main>{% block content %}{% endblock %}</main>
-
-    <footer class="site-footer">
-        <div class="container">
-            <div class="footer-main">
-                <div>
-                    <a class="brand brand-light" href="{% url 'index' %}">
-                        <span class="brand-mark"><i class="fa-solid fa-code"></i></span>
-                        <span>Python<span>Careers</span></span>
-                    </a>
-                    <p>Focused opportunities for Python people. Less noise, better matches, faster moves.</p>
-                </div>
-                <div class="footer-links">
-                    <div><span>Explore</span><a href="{% url 'job_list' %}">All jobs</a><a href="{% url 'job_list' %}?location=Remote">Remote jobs</a></div>
-                    <div><span>Stay connected</span><a href="{% url 'subscribe' %}">Job alerts</a><a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" rel="noopener">LinkedIn <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div>
-                </div>
-            </div>
-            <div class="footer-bottom"><span>© {% now "Y" %} <a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" rel="noopener">Mahmoud Shaker</a></span><span>Built for the Python community <i class="fa-solid fa-heart"></i></span></div>
-        </div>
-    </footer>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
-</body>
-</html>
+<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Technology and ERP jobs across Egypt and the Arab world, plus remote opportunities worldwide."><meta name="theme-color" content="#071426">
+<meta property="og:type" content="website"><meta property="og:site_name" content="MENA Tech Careers"><meta property="og:title" content="MENA Tech Careers — Technology & ERP jobs"><meta property="og:description" content="Software, ERP, Data, Cloud, DevOps and IT opportunities across MENA and remote worldwide."><meta property="og:url" content="{{ request.build_absolute_uri }}"><meta property="og:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}"><meta property="og:image:width" content="1776"><meta property="og:image:height" content="887"><meta property="og:image:alt" content="MENA Tech Careers opportunities">
+<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="MENA Tech Careers — Technology & ERP jobs"><meta name="twitter:description" content="Technology opportunities across MENA and remote worldwide."><meta name="twitter:image" content="{{ request.scheme }}://{{ request.get_host }}{% static 'images/hero-careers.png' %}">
+<title>{% block title %}MENA Tech Careers{% endblock %}</title><link rel="icon" href="{% static 'images/favicon.svg' %}" type="image/svg+xml"><link rel="shortcut icon" href="{% static 'images/favicon.svg' %}"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet"><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" rel="stylesheet"><link rel="stylesheet" href="{% static 'styles.css' %}"></head>
+<body><header class="site-header sticky-top"><nav class="navbar navbar-expand-lg" aria-label="Primary navigation"><div class="container"><a class="brand" href="{% url 'index' %}" aria-label="MENA Tech Careers home"><span class="brand-mark"><i class="fa-solid fa-layer-group"></i></span><span>MENA Tech<span>Careers</span></span></a><button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation"><i class="fa-solid fa-bars"></i></button><div class="collapse navbar-collapse" id="mainNav"><ul class="navbar-nav ms-auto align-items-lg-center gap-lg-2"><li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'index' %}">Home</a></li><li class="nav-item"><a class="nav-link {% if request.resolver_match.url_name == 'job_list' or request.resolver_match.url_name == 'job_detail' %}active{% endif %}" href="{% url 'job_list' %}">Browse jobs</a></li><li class="nav-item ms-lg-2"><a class="btn btn-nav" href="{% url 'subscribe' %}"><i class="fa-regular fa-bell"></i> Tailored job alerts</a></li></ul></div></div></nav></header>
+{% if messages %}<div class="toast-stack container" aria-live="polite">{% for message in messages %}<div class="site-alert site-alert-{{ message.tags }}"><i class="fa-solid {% if message.tags == 'success' %}fa-circle-check{% else %}fa-circle-exclamation{% endif %}"></i><span>{{ message }}</span><button type="button" onclick="this.parentElement.remove()" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button></div>{% endfor %}</div>{% endif %}
+<main>{% block content %}{% endblock %}</main><footer class="site-footer"><div class="container"><div class="footer-main"><div><a class="brand brand-light" href="{% url 'index' %}"><span class="brand-mark"><i class="fa-solid fa-layer-group"></i></span><span>MENA Tech<span>Careers</span></span></a><p>Focused Software, ERP, Data, Cloud, DevOps and IT opportunities across MENA and remote worldwide.</p></div><div class="footer-links"><div><span>Explore</span><a href="{% url 'job_list' %}">All jobs</a><a href="{% url 'job_list' %}?location=Remote">Remote jobs</a></div><div><span>Stay connected</span><a href="{% url 'subscribe' %}">Job alerts</a><a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" rel="noopener">LinkedIn <i class="fa-solid fa-arrow-up-right-from-square"></i></a></div></div></div><div class="footer-bottom"><span>© {% now "Y" %} <a href="https://www.linkedin.com/in/mahmoud-shaker889/" target="_blank" rel="noopener">Mahmoud Shaker</a></span><span>Built for the MENA tech community <i class="fa-solid fa-heart"></i></span></div></div></footer><script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script></body></html>

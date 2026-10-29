@@ -71,6 +71,22 @@ class CronUpdateTest(TestCase):
         self.assertEqual(run.status, 'failed')
         self.assertEqual(run.jobs_removed, 1)
 
+    def test_alert_cron_rejects_missing_secret(self):
+        response = self.client.get(reverse('cron_send_alerts'))
+        self.assertEqual(response.status_code, 401)
+
+    @patch('jobs.views.send_matching_alerts', return_value={'subscribers': 2, 'jobs': 5, 'failed': 0, 'configured': True})
+    @patch('jobs.views.send_unsent_welcome_emails', return_value={'sent': 1, 'failed': 0, 'configured': True})
+    def test_alert_cron_sends_welcome_and_matching_batches(self, welcome_mock, alerts_mock):
+        response = self.client.get(
+            reverse('cron_send_alerts'),
+            HTTP_AUTHORIZATION='Bearer test-cron-secret-123',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        welcome_mock.assert_called_once_with(limit=25)
+        alerts_mock.assert_called_once_with(max_subscribers=25)
+
 
 class AdminDashboardTest(TestCase):
     def test_custom_dashboard_renders(self):
