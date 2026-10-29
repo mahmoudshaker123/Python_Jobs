@@ -27,7 +27,10 @@ class JobViewsTest(TestCase):
         self.assertContains(response, 'Build what comes')
         self.assertContains(response, 'MENA Tech Careers')
         self.assertContains(response, 'images/favicon.svg')
-        self.assertContains(response, 'property="og:image"')
+        self.assertContains(response, 'images/favicon-192.png')
+        self.assertContains(response, 'https://menatechcareers.vercel.app/static/images/social-share.png')
+        self.assertContains(response, 'property="og:image:width" content="1200"')
+        self.assertContains(response, 'property="og:image:height" content="630"')
         self.assertContains(response, 'name="twitter:card"')
         self.assertContains(response, 'Mahmoud Shaker')
 
