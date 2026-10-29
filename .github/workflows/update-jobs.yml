@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Trigger the protected production updater
         env:
-          SITE_URL: ${{ secrets.SITE_URL }}
+          SITE_URL: https://menatechcareers.vercel.app
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           test -n "$SITE_URL"
@@ -30,7 +30,7 @@ jobs:
             "${SITE_URL%/}/api/cron/update-jobs/"
       - name: Send tailored job alerts in batches
         env:
-          SITE_URL: ${{ secrets.SITE_URL }}
+          SITE_URL: https://menatechcareers.vercel.app
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           for batch in 1 2 3 4; do

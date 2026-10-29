@@ -205,7 +205,7 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', '1') == '1'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'MENA Tech Careers <alerts@localhost>')
-PUBLIC_SITE_URL = os.environ.get('PUBLIC_SITE_URL', 'https://python-jobs.vercel.app')
+PUBLIC_SITE_URL = os.environ.get('PUBLIC_SITE_URL', 'https://menatechcareers.vercel.app')
 ALERT_BATCH_SIZE = int(os.environ.get('ALERT_BATCH_SIZE', '25'))
 
 # Celery Configuration
