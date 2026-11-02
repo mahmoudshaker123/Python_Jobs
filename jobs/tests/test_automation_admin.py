@@ -95,7 +95,17 @@ class CronUpdateTest(TestCase):
 
     def test_job_import_handles_duplicate_company_names(self):
         first = Company.objects.create(name='Repeated Company', location='Cairo')
-        Company.objects.create(name='Repeated Company', location='Remote')
+        duplicate_company = Company.objects.create(name='Repeated Company', location='Remote')
+        first_job = Job.objects.create(
+            title='Old Python role', company=first, location='Cairo',
+            description='Old description', requirement='Python',
+            job_url='https://example.com/python-role',
+        )
+        Job.objects.create(
+            title='Duplicate Python role', company=duplicate_company, location='Remote',
+            description='Duplicate description', requirement='Python',
+            job_url='https://example.com/python-role',
+        )
         job_data = {
             'title': 'Python Developer',
             'company': 'Repeated Company',
@@ -113,8 +123,9 @@ class CronUpdateTest(TestCase):
                 keep_stale=True, stdout=StringIO(), stderr=StringIO(),
             )
 
-        imported = Job.objects.get(job_url='https://example.com/python-role')
+        imported = Job.objects.get(pk=first_job.pk)
         self.assertEqual(imported.company_id, first.pk)
+        self.assertEqual(Job.objects.filter(job_url='https://example.com/python-role').count(), 2)
 
     def test_alert_cron_rejects_missing_secret(self):
         response = self.client.get(reverse('cron_send_alerts'))

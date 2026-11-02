@@ -97,9 +97,14 @@ class Command(BaseCommand):
                     }
                     if data.get('posted_at'):
                         defaults['posted_at'] = data['posted_at']
-                    job, created = Job.objects.update_or_create(
-                        job_url=data['job_url'], defaults=defaults,
-                    )
+                    job = Job.objects.filter(job_url=data['job_url']).order_by('pk').first()
+                    created = job is None
+                    if created:
+                        job = Job.objects.create(job_url=data['job_url'], **defaults)
+                    else:
+                        for field, value in defaults.items():
+                            setattr(job, field, value)
+                        job.save()
                     source_urls.add(job.job_url)
                     created_count += int(created)
                     updated_count += int(not created)
