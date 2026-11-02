@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Company, EmailSubscription, Job, JobAlertDelivery, JobSyncRun, Startup
+from .models import Company, CompanyReview, EmailSubscription, Job, JobAlertDelivery, JobSyncRun, Startup
 
 
 admin.site.site_header = 'MENA Tech Careers Control Center'
@@ -24,6 +24,25 @@ class StartupAdmin(admin.ModelAdmin):
     list_filter = ('country', 'stage', 'source')
     search_fields = ('name', 'country', 'stage')
     ordering = ('-hiring_roles', 'name')
+
+
+@admin.register(CompanyReview)
+class CompanyReviewAdmin(admin.ModelAdmin):
+    list_display = ('company', 'role_title', 'experience_type', 'overall_rating', 'is_approved', 'created_at')
+    list_filter = ('is_approved', 'experience_type', 'country', 'overall_rating', 'created_at')
+    search_fields = ('company__name', 'role_title', 'interview_process', 'pros', 'cons')
+    autocomplete_fields = ('company',)
+    list_select_related = ('company',)
+    readonly_fields = ('created_at',)
+    actions = ('approve_reviews', 'hide_reviews')
+
+    @admin.action(description='Approve selected anonymous reviews')
+    def approve_reviews(self, request, queryset):
+        queryset.update(is_approved=True)
+
+    @admin.action(description='Hide selected reviews')
+    def hide_reviews(self, request, queryset):
+        queryset.update(is_approved=False)
 
 
 @admin.register(Job)

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ company.name }} - {{ tr.company_profile }}{% endblock %}
+{% block content %}
+<section class="company-profile-hero">
+  <div class="container-fluid site-container">
+    <a class="back-link" href="{% url 'company_list' %}"><i class="fa-solid fa-arrow-left"></i> {{ tr.back_companies }}</a>
+    <div class="company-profile-heading">
+      <div class="company-profile-identity">
+        <span class="company-profile-logo">{% if company.logo_url %}<img src="{{ company.logo_url }}" alt="" referrerpolicy="no-referrer">{% else %}{{ company.name|slice:":1" }}{% endif %}</span>
+        <div><span class="terminal-label">// {{ tr.company_profile }}</span><h1>{{ company.name }}</h1><p><i class="fa-solid fa-location-dot"></i> {{ company.location|default:tr.location_not_listed }}{% if company.website %}<a href="{{ company.website }}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-arrow-up-right-from-square"></i> {{ tr.company_website }}</a>{% endif %}</p></div>
+      </div>
+      <a class="btn btn-brand" href="{% url 'company_reviews' %}?company_id={{ company.id }}#share-review">{{ tr.add_review }} <i class="fa-solid fa-pen"></i></a>
+    </div>
+    <div class="company-profile-kpis">
+      <div><strong>{{ job_count }}</strong><span>{{ tr.open_roles }}</span></div>
+      <div><strong>{{ review_stats.count }}</strong><span>{{ tr.review_total }}</span></div>
+      <div><strong>{% if review_stats.average_rating %}{{ review_stats.average_rating|floatformat:1 }} / 5{% else %}—{% endif %}</strong><span>{{ tr.review_average }}</span></div>
+      <div><strong>{% if recommendation_percent != None %}{{ recommendation_percent }}%{% else %}—{% endif %}</strong><span>{{ tr.company_recommend_rate }}</span></div>
+    </div>
+    <nav class="company-profile-nav"><a href="#overview">{{ tr.company_overview }}</a><a href="#jobs">{{ tr.nav_jobs }} <span>{{ job_count }}</span></a><a href="#reviews">{{ tr.nav_reviews }} <span>{{ review_stats.count }}</span></a><a href="#insights">{{ tr.company_insights }}</a></nav>
+  </div>
+</section>
+
+<section class="company-profile-body container-fluid site-container">
+  <div class="company-profile-main">
+    <section class="company-profile-section" id="overview"><div class="company-section-heading"><div><span class="terminal-label">01 / {{ tr.company_overview }}</span><h2>{{ tr.about_company }}</h2></div></div><div class="company-about-copy">{% if company.description %}{{ company.description|linebreaks }}{% else %}<p>{{ tr.company_no_description }}</p>{% endif %}</div>{% if categories %}<div class="company-category-list">{% for item in categories %}<a href="{% url 'job_list' %}?category={{ item.category }}&q={{ company.name|urlencode }}"><span>{{ item.label }}</span><b>{{ item.count }}</b></a>{% endfor %}</div>{% endif %}</section>
+
+    <section class="company-profile-section" id="jobs"><div class="company-section-heading"><div><span class="terminal-label">02 / {{ tr.nav_jobs }}</span><h2>{{ tr.company_open_jobs }}</h2></div><a href="{% url 'job_list' %}?q={{ company.name|urlencode }}">{{ tr.view_all }} <i class="fa-solid fa-arrow-right"></i></a></div><div class="company-job-list">{% for job in jobs %}<article><div><span class="role-category">{{ job.get_category_display }}</span><h3><a href="{% url 'job_detail' job.id %}">{{ job.title }}</a></h3><p>{{ job.location }} · {{ job.job_type }}{% if job.seniority %} · {{ job.seniority }}{% endif %}</p></div><time>{{ job.posted_at|timesince }}</time></article>{% empty %}<div class="empty-state">{{ tr.company_no_jobs }}</div>{% endfor %}</div></section>
+
+    <section class="company-profile-section" id="reviews"><div class="company-section-heading"><div><span class="terminal-label">03 / {{ tr.nav_reviews }}</span><h2>{{ tr.company_employee_reviews }}</h2></div><a href="{% url 'company_reviews' %}?company_id={{ company.id }}#share-review">{{ tr.add_review }}</a></div>{% for review in reviews %}<article class="company-review-card compact-review-card"><div class="company-review-heading"><div><span class="review-role-label">{{ review.get_experience_type_display }}{% if review.country %} · {{ review.country }}{% endif %}</span><h3>{{ review.role_title }}</h3></div><div class="review-rating"><strong>{{ review.overall_rating }}/5</strong><span>{% for _ in '12345' %}{% if forloop.counter <= review.overall_rating %}★{% else %}☆{% endif %}{% endfor %}</span></div></div><div class="review-facts">{% if review.would_recommend != None %}<span>{% if review.would_recommend %}{{ tr.review_recommended_yes }}{% else %}{{ tr.review_recommended_no }}{% endif %}</span>{% endif %}{% if review.interview_outcome %}<span>{{ review.get_interview_outcome_display }}</span>{% endif %}{% if review.response_days != None %}<span>{{ review.response_days }} {{ tr.review_days }}</span>{% endif %}</div>{% if review.pros %}<div class="review-copy"><h4>{{ tr.review_pros_title }}</h4><p>{{ review.pros|linebreaksbr }}</p></div>{% endif %}{% if review.cons %}<div class="review-copy"><h4>{{ tr.review_cons_title }}</h4><p>{{ review.cons|linebreaksbr }}</p></div>{% endif %}<footer class="review-card-footer"><span><i class="fa-solid fa-user-secret"></i> {{ tr.review_kicker }}</span><time>{{ review.created_at|date:'M Y' }}</time></footer></article>{% empty %}<div class="company-empty-cta"><i class="fa-regular fa-comments"></i><h3>{{ tr.company_no_reviews }}</h3><p>{{ tr.company_first_review }}</p><a class="btn btn-brand" href="{% url 'company_reviews' %}?company_id={{ company.id }}#share-review">{{ tr.add_review }}</a></div>{% endfor %}</section>
+  </div>
+
+  <aside class="company-insights" id="insights">
+    <div class="company-insight-card"><span class="terminal-label">{{ tr.company_interview_snapshot }}</span><h3>{% if review_stats.average_interview %}{{ review_stats.average_interview|floatformat:1 }} / 5{% else %}—{% endif %}</h3><p>{{ tr.review_interview_rating }}</p>{% if review_stats.average_response_days %}<div class="insight-line"><span>{{ tr.review_response_time }}</span><b>{{ review_stats.average_response_days|floatformat:0 }} {{ tr.review_days }}</b></div>{% endif %}{% for outcome in interview_outcomes %}<div class="insight-line"><span>{{ outcome.label }}</span><b>{{ outcome.count }}</b></div>{% empty %}<small>{{ tr.company_not_enough_interviews }}</small>{% endfor %}</div>
+    <div class="company-insight-card"><span class="terminal-label">{{ tr.company_salary_snapshot }}</span><h3>{{ salary_summaries|length }}</h3><p>{{ tr.company_salary_groups }}</p>{% for salary in salary_summaries %}<div class="salary-summary-row"><span>{{ salary.salary_currency }}{% if salary.salary_period %} / {{ salary.salary_period }}{% endif %}</span><b>{{ salary.salary_low|default:'—' }} – {{ salary.salary_high|default:'—' }}</b><small>{{ salary.report_count }} {{ tr.company_reports }}</small></div>{% empty %}<small>{{ tr.company_not_enough_salary }}</small>{% endfor %}</div>
+    <div class="company-insight-note"><i class="fa-solid fa-circle-info"></i><p>{{ tr.company_insight_note }}</p></div>
+  </aside>
+</section>
+{% endblock %}

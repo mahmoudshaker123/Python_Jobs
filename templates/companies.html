@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.nav_companies }} - MENA Tech Careers{% endblock %}
+{% block content %}
+<section class="company-directory-hero">
+  <div class="container-fluid site-container company-directory-heading">
+    <div>
+      <span class="terminal-label">// {{ tr.companies_kicker }}</span>
+      <h1>{{ tr.companies_title }}</h1>
+      <p>{{ tr.companies_intro }}</p>
+    </div>
+    <div class="company-directory-count"><strong>{{ page_obj.paginator.count }}</strong><span>{{ tr.companies_hiring }}</span></div>
+  </div>
+</section>
+<section class="company-directory-body">
+  <div class="container-fluid site-container">
+    <form class="company-filters" method="get">
+      <label class="company-filter-search"><i class="fa-solid fa-magnifying-glass"></i><input type="search" name="q" value="{{ company_query }}" placeholder="{{ tr.companies_search }}"></label>
+      <label><select name="sort"><option value="jobs" {% if selected_sort == 'jobs' %}selected{% endif %}>{{ tr.companies_sort_jobs }}</option><option value="rating" {% if selected_sort == 'rating' %}selected{% endif %}>{{ tr.companies_sort_rating }}</option><option value="reviews" {% if selected_sort == 'reviews' %}selected{% endif %}>{{ tr.companies_sort_reviews }}</option><option value="name" {% if selected_sort == 'name' %}selected{% endif %}>{{ tr.companies_sort_name }}</option></select></label>
+      <label class="company-reviewed-filter"><input type="checkbox" name="reviewed" value="1" {% if reviewed_only %}checked{% endif %}><span>{{ tr.companies_reviewed_only }}</span></label>
+      <button class="btn btn-brand" type="submit">{{ tr.companies_find }}</button>
+    </form>
+    <div class="company-list-summary"><b>{{ page_obj.paginator.count }} {{ tr.nav_companies }}</b>{% if company_query %}<span>“{{ company_query }}”</span>{% endif %}<a href="{% url 'company_list' %}">{{ tr.clear_filters }}</a></div>
+    <div class="company-card-grid">
+      {% for company in page_obj %}
+      <article class="company-card">
+        <a class="company-card-main" href="{{ company.get_absolute_url }}">
+          <span class="company-card-logo">{% if company.logo_url %}<img src="{{ company.logo_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ company.name|slice:":1" }}{% endif %}</span>
+          <span class="company-card-copy"><strong>{{ company.name }}</strong><small><i class="fa-solid fa-location-dot"></i> {{ company.location|default:tr.location_not_listed }}</small></span>
+          <i class="fa-solid fa-arrow-right company-card-arrow"></i>
+        </a>
+        {% if company.description %}<p>{{ company.description|truncatewords:22 }}</p>{% else %}<p>{{ tr.company_profile_from_jobs }}</p>{% endif %}
+        <div class="company-card-metrics">
+          <span><b>{{ company.open_jobs }}</b>{{ tr.open_roles }}</span>
+          <span><b>{% if company.average_rating %}{{ company.average_rating|floatformat:1 }} / 5{% else %}—{% endif %}</b>{{ company.review_count }} {{ tr.review_total }}</span>
+        </div>
+        <div class="company-card-actions"><a href="{{ company.get_absolute_url }}">{{ tr.view_company_profile }}</a><a href="{% url 'company_reviews' %}?company_id={{ company.id }}#share-review">{{ tr.add_review }}</a></div>
+      </article>
+      {% empty %}<div class="empty-state company-directory-empty"><h2>{{ tr.no_companies }}</h2><p>{{ tr.no_companies_hint }}</p><a class="btn btn-brand" href="{% url 'company_list' %}">{{ tr.clear_filters }}</a></div>{% endfor %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination-wrap"><ul class="pagination">{% if page_obj.has_previous %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a></li>{% endif %}{% for num in page_obj.paginator.page_range %}{% if page_obj.number == num %}<li><span class="current">{{ num }}</span></li>{% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ num }}">{{ num }}</a></li>{% endif %}{% endfor %}{% if page_obj.has_next %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.next_page_number }}">→</a></li>{% endif %}</ul></nav>{% endif %}
+  </div>
+</section>
+{% endblock %}

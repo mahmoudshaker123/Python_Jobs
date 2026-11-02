@@ -65,17 +65,22 @@ SKILL_TERMS = (
 )
 
 
+def contains_term(text, term):
+    """Match taxonomy terms as complete tokens instead of word fragments."""
+    return bool(re.search(rf'(?<!\w){re.escape(term.lower())}(?!\w)', text))
+
+
 def classify_job(title, description='', requirements=''):
     title_text = (title or '').lower()
     text = ' '.join((title or '', description or '', requirements or '')).lower()
     category = Job.Category.OTHER
     for candidate, terms in CATEGORY_RULES:
-        if any(term in title_text for term in terms):
+        if any(contains_term(title_text, term) for term in terms):
             category = candidate
             break
     if category == Job.Category.OTHER:
         for candidate, terms in CATEGORY_RULES:
-            if any(term in text for term in terms):
+            if any(contains_term(text, term) for term in terms):
                 category = candidate
                 break
     skills = [

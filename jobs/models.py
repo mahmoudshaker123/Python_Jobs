@@ -2,9 +2,16 @@ import uuid
 
 from django.db import models
 from django.core.validators import EmailValidator
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.text import slugify
 
 class Company(models.Model):
+    PLACEHOLDER_NAMES = (
+        'Unknown company', 'Company not disclosed', 'Direct advertiser',
+        'Confidential', 'Confidential Company', 'Undisclosed',
+    )
+
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
@@ -13,6 +20,13 @@ class Company(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def url_slug(self):
+        return slugify(self.name) or 'company'
+
+    def get_absolute_url(self):
+        return reverse('company_detail', kwargs={'id': self.pk, 'slug': self.url_slug})
 
 class Job(models.Model):
     class Category(models.TextChoices):
@@ -85,6 +99,59 @@ class Startup(models.Model):
 
     def __str__(self):
         return self.name
+
+class CompanyReview(models.Model):
+    class ExperienceType(models.TextChoices):
+        EMPLOYEE = 'employee', 'Current employee'
+        FORMER = 'former', 'Former employee'
+        CANDIDATE = 'candidate', 'Interview candidate'
+
+    class InterviewOutcome(models.TextChoices):
+        OFFER = 'offer', 'Offer received'
+        REJECTED = 'rejected', 'Rejected'
+        NO_RESPONSE = 'no_response', 'No response'
+        UNKNOWN = 'unknown', 'Prefer not to say'
+
+    CURRENCY_CHOICES = [
+        ('EGP', 'EGP'), ('SAR', 'SAR'), ('AED', 'AED'), ('USD', 'USD'),
+        ('QAR', 'QAR'), ('KWD', 'KWD'), ('BHD', 'BHD'), ('OMR', 'OMR'),
+        ('JOD', 'JOD'), ('MAD', 'MAD'), ('TND', 'TND'),
+    ]
+
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name='reviews',
+    )
+    role_title = models.CharField(max_length=180)
+    country = models.CharField(max_length=80, blank=True)
+    experience_type = models.CharField(max_length=20, choices=ExperienceType.choices)
+    overall_rating = models.PositiveSmallIntegerField()
+    interview_rating = models.PositiveSmallIntegerField(blank=True, null=True)
+    would_recommend = models.BooleanField(blank=True, null=True)
+    salary_min = models.PositiveIntegerField(blank=True, null=True)
+    salary_max = models.PositiveIntegerField(blank=True, null=True)
+    salary_currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, blank=True)
+    salary_period = models.CharField(max_length=12, blank=True)
+    interview_process = models.TextField(blank=True, max_length=2500)
+    pros = models.TextField(blank=True, max_length=1500)
+    cons = models.TextField(blank=True, max_length=1500)
+    response_days = models.PositiveSmallIntegerField(blank=True, null=True)
+    interview_outcome = models.CharField(max_length=20, choices=InterviewOutcome.choices, blank=True)
+    is_approved = models.BooleanField(default=False, db_index=True)
+    moderation_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-created_at',)
+        indexes = [
+            models.Index(fields=('is_approved', 'company'), name='jobs_compan_is_appr_4d84cf_idx'),
+            models.Index(fields=('is_approved', 'created_at'), name='jobs_compan_is_appr_b1ed23_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.company.name} — {self.role_title}'
+
 
 class Subscriber(models.Model):
     email = models.EmailField(unique=True)

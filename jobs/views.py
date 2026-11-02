@@ -5,15 +5,16 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Avg, Count, F, Max, Min, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
-from .forms import CVMatchForm, SubscriberForm
+from .forms import CompanyReviewForm, CVMatchForm, SubscriberForm
 from .matching import extract_cv_text, rank_jobs_for_cv
-from .models import EmailSubscription, Job, Startup
+from .models import Company, CompanyReview, EmailSubscription, Job, Startup
 from .notifications import send_matching_alerts, send_unsent_welcome_emails
+from .site_i18n import get_site_language
 from .sync import run_job_update
 
 
@@ -106,6 +107,97 @@ def job_list(request):
 
 def job_search(request):
     return job_list(request)
+
+
+def company_list(request):
+    query = request.GET.get('q', '').strip()
+    sort = request.GET.get('sort', 'jobs').strip()
+    reviewed_only = request.GET.get('reviewed') == '1'
+    approved_reviews = Q(reviews__is_approved=True)
+    companies = Company.objects.filter(job__isnull=False).exclude(
+        name__in=Company.PLACEHOLDER_NAMES,
+    ).annotate(
+        open_jobs=Count('job', distinct=True),
+        review_count=Count('reviews', filter=approved_reviews, distinct=True),
+        average_rating=Avg('reviews__overall_rating', filter=approved_reviews),
+    )
+    if query:
+        companies = companies.filter(
+            Q(name__icontains=query)
+            | Q(location__icontains=query)
+            | Q(description__icontains=query)
+            | Q(job__title__icontains=query)
+        ).distinct()
+    if reviewed_only:
+        companies = companies.filter(review_count__gt=0)
+    orderings = {
+        'rating': (F('average_rating').desc(nulls_last=True), '-review_count', 'name'),
+        'reviews': ('-review_count', '-open_jobs', 'name'),
+        'name': ('name',),
+        'jobs': ('-open_jobs', '-review_count', 'name'),
+    }
+    companies = companies.order_by(*orderings.get(sort, orderings['jobs']))
+    query_params = request.GET.copy()
+    query_params.pop('page', None)
+    return render(request, 'companies.html', {
+        'page_obj': Paginator(companies, 24).get_page(request.GET.get('page')),
+        'company_query': query,
+        'selected_sort': sort,
+        'reviewed_only': reviewed_only,
+        'filter_query': query_params.urlencode(),
+    })
+
+
+def company_detail(request, id, slug=None):
+    company = get_object_or_404(
+        Company.objects.filter(job__isnull=False).distinct(),
+        pk=id,
+    )
+    jobs = company.job_set.order_by('-posted_at')
+    reviews = company.reviews.filter(is_approved=True)
+    review_stats = reviews.aggregate(
+        count=Count('id'),
+        average_rating=Avg('overall_rating'),
+        average_interview=Avg('interview_rating'),
+        average_response_days=Avg('response_days'),
+    )
+    recommendation_reviews = reviews.filter(would_recommend__isnull=False)
+    recommendation_total = recommendation_reviews.count()
+    recommendation_percent = round(
+        recommendation_reviews.filter(would_recommend=True).count() * 100 / recommendation_total
+    ) if recommendation_total else None
+    salary_summaries = list(
+        reviews.exclude(salary_currency='').values('salary_currency', 'salary_period')
+        .annotate(
+            report_count=Count('id'),
+            salary_low=Min('salary_min'),
+            salary_high=Max('salary_max'),
+        ).order_by('-report_count', 'salary_currency')
+    )
+    interview_outcomes = list(
+        reviews.exclude(interview_outcome='').values('interview_outcome')
+        .annotate(count=Count('id')).order_by('-count')
+    )
+    outcome_labels = dict(CompanyReview.InterviewOutcome.choices)
+    for outcome in interview_outcomes:
+        outcome['label'] = outcome_labels.get(outcome['interview_outcome'], outcome['interview_outcome'])
+    categories = list(
+        jobs.values('category').annotate(count=Count('id')).order_by('-count')[:5]
+    )
+    category_labels = dict(Job.Category.choices)
+    for category in categories:
+        category['label'] = category_labels.get(category['category'], category['category'])
+    return render(request, 'company_detail.html', {
+        'company': company,
+        'jobs': jobs[:20],
+        'job_count': jobs.count(),
+        'reviews': reviews[:12],
+        'review_stats': review_stats,
+        'recommendation_percent': recommendation_percent,
+        'salary_summaries': salary_summaries,
+        'interview_outcomes': interview_outcomes,
+        'categories': categories,
+    })
 
 
 def job_detail(request, id):
@@ -222,7 +314,7 @@ def cv_match(request):
             if len(cv_text.strip()) < 80:
                 extraction_error = 'We could not read enough text from this CV. Try a text-based PDF or TXT file.'
             else:
-                jobs = Job.objects.select_related('company').order_by('-posted_at')[:300]
+                jobs = Job.objects.select_related('company').order_by('-posted_at')[:600]
                 matches = rank_jobs_for_cv(cv_text, jobs)
         except Exception:
             extraction_error = 'This file could not be read safely. Try exporting the CV as a text-based PDF.'
@@ -230,6 +322,49 @@ def cv_match(request):
         'form': form,
         'matches': matches,
         'extraction_error': extraction_error,
+    })
+
+
+def company_reviews(request):
+    company_id = request.GET.get('company_id', '')
+    initial = {'company': company_id} if company_id.isdigit() else None
+    form = CompanyReviewForm(
+        request.POST or None,
+        initial=initial,
+        language=get_site_language(request),
+    )
+    if request.method == 'POST':
+        submitted_at = request.session.get('last_company_review_submission', 0)
+        if timezone.now().timestamp() - submitted_at < 60:
+            messages.error(request, 'Please wait a minute before submitting another review.')
+        elif form.is_valid():
+            review = form.save(commit=False)
+            review.is_approved = False
+            review.save()
+            request.session['last_company_review_submission'] = timezone.now().timestamp()
+            messages.success(
+                request,
+                'Thanks. Your anonymous review is queued for moderation before it appears publicly.',
+            )
+            return redirect(review.company.get_absolute_url())
+
+    query = request.GET.get('company', '').strip()
+    reviews = CompanyReview.objects.filter(is_approved=True)
+    if query:
+        reviews = reviews.filter(company__name__icontains=query)
+    reviews = reviews.select_related('company')
+    summary = CompanyReview.objects.filter(is_approved=True).aggregate(
+        review_count=Count('id'),
+        company_count=Count('company', distinct=True),
+        average_rating=Avg('overall_rating'),
+    )
+    return render(request, 'company_reviews.html', {
+        'form': form,
+        'page_obj': Paginator(reviews, 20).get_page(request.GET.get('page')),
+        'company_query': query,
+        'review_count': summary['review_count'] or 0,
+        'company_count': summary['company_count'] or 0,
+        'average_rating': summary['average_rating'],
     })
 
 

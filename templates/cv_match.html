@@ -1,5 +1,91 @@
 {% extends "base.html" %}
 {% block title %}{{ tr.nav_match }} - MENA Tech Careers{% endblock %}
 {% block content %}
-<section class="match-page"><div class="container-fluid site-container"><div class="match-intro"><span class="terminal-label">// {{ tr.match_kicker }}</span><h1>{{ tr.match_title }}</h1><p>{{ tr.match_text }}</p></div><form method="post" enctype="multipart/form-data" class="cv-upload-card">{% csrf_token %}<label class="cv-drop" for="{{ form.cv.id_for_label }}"><i class="fa-regular fa-file-lines"></i><strong>{{ tr.drop_cv }}</strong><span>{{ tr.cv_hint }}</span>{{ form.cv }}</label>{% for error in form.cv.errors %}<p class="field-error">{{ error }}</p>{% endfor %}{% if extraction_error %}<p class="field-error">{{ extraction_error }}</p>{% endif %}<button class="btn btn-brand btn-lg" type="submit">{{ tr.match_button }} <i class="fa-solid fa-wand-magic-sparkles"></i></button><p class="privacy-line"><i class="fa-solid fa-shield-halved"></i> {{ tr.privacy_cv }}</p></form>{% if matches != None %}<section class="match-results"><div class="section-line"><h2>{{ tr.match_results }}</h2></div>{% for item in matches %}<article class="match-card"><div class="match-score"><strong>{{ item.score }}%</strong><span>{{ tr.match_score }}</span></div><div><span class="role-category">{{ item.job.get_category_display }}</span><h3><a href="{% url 'job_detail' item.job.id %}">{{ item.job.title }}</a></h3><p>{{ item.job.company.name }} · {{ item.job.location }}</p>{% if item.matched_skills %}<div class="role-tags"><b>{{ tr.matched_skills }}:</b>{% for skill in item.matched_skills %}<span>{{ skill }}</span>{% endfor %}</div>{% endif %}</div><a class="match-open" href="{% url 'job_detail' item.job.id %}"><i class="fa-solid fa-arrow-right"></i></a></article>{% empty %}<div class="empty-state">{{ tr.no_matches }}</div>{% endfor %}</section>{% endif %}</div></section>
+<section class="match-page">
+  <div class="container-fluid site-container">
+    <div class="match-hero-grid">
+      <div class="match-intro">
+        <span class="terminal-label">// {{ tr.match_kicker }}</span>
+        <h1>{{ tr.match_title }}</h1>
+        <p>{{ tr.match_text }}</p>
+        <div class="match-benefits" aria-label="{{ tr.match_how_it_works }}">
+          <span><i class="fa-solid fa-bullseye"></i><b>{{ tr.match_benefit_roles }}</b></span>
+          <span><i class="fa-solid fa-list-check"></i><b>{{ tr.match_benefit_explain }}</b></span>
+          <span><i class="fa-solid fa-lock"></i><b>{{ tr.match_benefit_private }}</b></span>
+        </div>
+      </div>
+      <form method="post" enctype="multipart/form-data" class="cv-upload-card" id="cv-upload-form">
+        {% csrf_token %}
+        <div class="cv-card-heading">
+          <span class="cv-card-icon"><i class="fa-solid fa-file-shield"></i></span>
+          <div><strong>{{ tr.upload_cv_title }}</strong><span>{{ tr.upload_cv_subtitle }}</span></div>
+        </div>
+        <label class="cv-drop" for="{{ form.cv.id_for_label }}" id="cv-drop-zone">
+          <span class="cv-upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+          <strong>{{ tr.drop_cv }}</strong>
+          <span id="cv-file-help">{{ tr.cv_drop_hint }}</span>
+          <span class="cv-browse">{{ tr.cv_browse }}</span>
+          {{ form.cv }}
+          <span class="cv-selected-name" id="cv-file-name" aria-live="polite">{{ tr.cv_no_file }}</span>
+        </label>
+        <div class="cv-file-rules"><span><i class="fa-regular fa-file-pdf"></i> PDF / TXT</span><span><i class="fa-solid fa-database"></i> {{ tr.cv_max_size }}</span></div>
+        {% for error in form.cv.errors %}<p class="field-error"><i class="fa-solid fa-circle-exclamation"></i> {{ error }}</p>{% endfor %}
+        {% if extraction_error %}<p class="field-error"><i class="fa-solid fa-circle-exclamation"></i> {{ extraction_error }}</p>{% endif %}
+        <button class="btn btn-brand btn-lg" type="submit">{{ tr.match_button }} <i class="fa-solid fa-arrow-right"></i></button>
+        <p class="privacy-line"><i class="fa-solid fa-shield-halved"></i> {{ tr.privacy_cv }}</p>
+      </form>
+    </div>
+    {% if matches != None %}
+    <section class="match-results">
+      <div class="section-line"><h2>{{ tr.match_results }}</h2><p class="match-disclaimer">{{ tr.match_honest_score }}</p></div>
+      {% for item in matches %}
+      <article class="match-card">
+        <div class="match-score"><strong>{{ item.score }}%</strong><span>{{ tr.match_score }}</span></div>
+        <div>
+          <span class="role-category">{{ item.job.get_category_display }}</span>
+          <h3><a href="{% url 'job_detail' item.job.id %}">{{ item.job.title }}</a></h3>
+          <p>{{ item.job.company.name }} · {{ item.job.location }}</p>
+          {% if item.reasons %}<div class="match-reasons"><b>{{ tr.match_reasons }}:</b> {% for reason in item.reasons %}{% if reason == 'skills' %}{{ tr.match_reason_skills }}{% elif reason == 'title' %}{{ tr.match_reason_title }}{% elif reason == 'field' %}{{ tr.match_reason_field }}{% elif reason == 'experience' %}{{ tr.match_reason_experience }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+          {% if item.matched_skills %}<div class="role-tags"><b>{{ tr.matched_skills }}:</b>{% for skill in item.matched_skills %}<span>{{ skill }}</span>{% endfor %}</div>{% endif %}
+          {% if item.missing_skills %}<div class="role-tags match-gaps"><b>{{ tr.missing_skills }}:</b>{% for skill in item.missing_skills %}<span>{{ skill }}</span>{% endfor %}</div>{% endif %}
+        </div>
+        <a class="match-open" href="{% url 'job_detail' item.job.id %}" aria-label="{{ item.job.title }}"><i class="fa-solid fa-arrow-right"></i></a>
+      </article>
+      {% empty %}<div class="empty-state">{{ tr.no_matches }}</div>{% endfor %}
+    </section>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const input = document.getElementById('{{ form.cv.id_for_label }}');
+  const dropZone = document.getElementById('cv-drop-zone');
+  const fileName = document.getElementById('cv-file-name');
+  if (!input || !dropZone || !fileName) return;
+  const showFile = () => {
+    const file = input.files && input.files[0];
+    fileName.textContent = file ? file.name : '{{ tr.cv_no_file|escapejs }}';
+    dropZone.classList.toggle('has-file', Boolean(file));
+  };
+  input.addEventListener('change', showFile);
+  ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, event => {
+    event.preventDefault();
+    dropZone.classList.add('is-dragging');
+  }));
+  ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, event => {
+    event.preventDefault();
+    dropZone.classList.remove('is-dragging');
+  }));
+  dropZone.addEventListener('drop', event => {
+    if (!event.dataTransfer.files.length) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(event.dataTransfer.files[0]);
+    input.files = transfer.files;
+    showFile();
+  });
+  showFile();
+});
+</script>
 {% endblock %}

@@ -3,7 +3,7 @@ from django.urls import reverse
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 
-from jobs.models import Company, EmailSubscription, Job, Startup
+from jobs.models import Company, CompanyReview, EmailSubscription, Job, Startup
 
 
 class JobViewsTest(TestCase):
@@ -35,6 +35,7 @@ class JobViewsTest(TestCase):
         self.assertContains(response, 'property="og:image:height" content="630"')
         self.assertContains(response, 'name="twitter:card"')
         self.assertContains(response, 'Mahmoud Shaker')
+        self.assertContains(response, reverse('company_list'))
 
     def test_searches_title_company_location_and_type(self):
         response = self.client.get(reverse('job_list'), {
@@ -48,6 +49,48 @@ class JobViewsTest(TestCase):
         response = self.client.get(reverse('job_detail', args=[job.id]))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Build APIs with Python and Django.')
+        self.assertContains(response, job.company.get_absolute_url())
+
+    def test_company_directory_links_jobs_reviews_and_profiles(self):
+        company = Company.objects.get(name='Acme Data')
+        hidden_company = Company.objects.create(name='No Jobs LLC', location='Cairo')
+        CompanyReview.objects.create(
+            company=company, role_title='Backend Engineer', country='Egypt',
+            experience_type='employee', overall_rating=4, interview_rating=3,
+            would_recommend=True, salary_min=30000, salary_max=45000,
+            salary_currency='EGP', salary_period='monthly', response_days=7,
+            interview_outcome='offer', pros='Supportive engineering team.',
+            cons='The process could be faster.', is_approved=True,
+        )
+        CompanyReview.objects.create(
+            company=company, role_title='Hidden review', experience_type='candidate',
+            overall_rating=1, is_approved=False,
+        )
+
+        response = self.client.get(reverse('company_list'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Acme Data')
+        self.assertContains(response, '2')
+        self.assertNotContains(response, hidden_company.name)
+        listed = response.context['page_obj'].object_list[0]
+        self.assertEqual(listed.open_jobs, 2)
+        self.assertEqual(listed.review_count, 1)
+
+        response = self.client.get(company.get_absolute_url())
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Senior Django Engineer')
+        self.assertContains(response, 'Data Analyst')
+        self.assertContains(response, 'Supportive engineering team.')
+        self.assertNotContains(response, 'Hidden review')
+        self.assertEqual(response.context['recommendation_percent'], 100)
+        self.assertEqual(response.context['salary_summaries'][0]['salary_currency'], 'EGP')
+
+    def test_company_directory_search_and_review_prefill(self):
+        company = Company.objects.get(name='Acme Data')
+        response = self.client.get(reverse('company_list'), {'q': 'Django'})
+        self.assertContains(response, 'Acme Data')
+        response = self.client.get(reverse('company_reviews'), {'company_id': company.pk})
+        self.assertEqual(response.context['form'].initial['company'], str(company.pk))
 
     def test_filters_by_source(self):
         response = self.client.get(reverse('job_list'), {'source': 'Bayt'})
@@ -91,7 +134,93 @@ class JobViewsTest(TestCase):
         response = self.client.post(reverse('cv_match'), {'cv': cv})
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Senior Django Engineer')
+        self.assertContains(response, 'Skills to strengthen')
+        self.assertEqual(response.context['matches'][0]['job'].title, 'Senior Django Engineer')
+        self.assertIn('experience', response.context['matches'][0]['reasons'])
         self.assertEqual(response.context['form'].files['cv'].name, 'mahmoud-cv.txt')
+
+    def test_cv_match_prefers_the_relevant_career_track(self):
+        cv = SimpleUploadedFile(
+            'data-cv.txt',
+            (b'Data analyst with four years of SQL, Tableau, Power BI, reporting, '
+             b'dashboards, product analytics, data quality and stakeholder experience.'),
+            content_type='text/plain',
+        )
+        response = self.client.post(reverse('cv_match'), {'cv': cv})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['matches'][0]['job'].title, 'Data Analyst')
+
+    def test_cv_match_does_not_force_unrelated_results(self):
+        cv = SimpleUploadedFile(
+            'unrelated-cv.txt',
+            (b'Experienced hospitality supervisor focused on restaurant operations, '
+             b'guest satisfaction, food safety, inventory and shift scheduling for six years.'),
+            content_type='text/plain',
+        )
+        response = self.client.post(reverse('cv_match'), {'cv': cv})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context['matches'], [])
+
+    def test_company_reviews_are_anonymous_and_hidden_until_moderated(self):
+        response = self.client.get(reverse('company_reviews'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Submit anonymously')
+        self.assertContains(response, 'Company reviews')
+
+        payload = {
+            'company': Company.objects.get(name='Acme Data').pk, 'role_title': 'Software Engineer',
+            'country': 'Egypt', 'experience_type': 'candidate',
+            'overall_rating': 4, 'interview_rating': 3, 'would_recommend': 'yes',
+            'salary_min': '', 'salary_max': '', 'salary_currency': '', 'salary_period': '',
+            'interview_process': 'Two technical rounds and a discussion with the team.',
+            'response_days': 5, 'interview_outcome': 'offer',
+            'pros': 'Friendly engineers and clear expectations.',
+            'cons': 'The process took several weeks.', 'website': '',
+        }
+        response = self.client.post(reverse('company_reviews'), payload)
+        company = Company.objects.get(name='Acme Data')
+        self.assertRedirects(response, company.get_absolute_url())
+        review = CompanyReview.objects.get()
+        self.assertFalse(review.is_approved)
+        self.assertFalse(CompanyReview.objects.filter(is_approved=True).exists())
+
+        review.is_approved = True
+        review.save(update_fields=('is_approved',))
+        response = self.client.get(reverse('company_reviews'))
+        self.assertContains(response, 'Acme Data')
+        self.assertContains(response, 'Software Engineer')
+        self.assertEqual(response.context['review_count'], 1)
+        self.assertEqual(response.context['company_count'], 1)
+
+    def test_company_review_form_localizes_choices_in_arabic(self):
+        self.client.get(reverse('set_site_language', args=['ar']), {'next': reverse('company_reviews')})
+        response = self.client.get(reverse('company_reviews'))
+        self.assertContains(response, 'اختر شركة من دليل الوظائف')
+        self.assertContains(response, 'مرشح أجرى مقابلة')
+
+    def test_company_review_rejects_contact_details(self):
+        response = self.client.post(reverse('company_reviews'), {
+            'company': Company.objects.get(name='Acme Data').pk, 'role_title': 'Engineer',
+            'experience_type': 'candidate', 'overall_rating': 4,
+            'interview_process': 'Contact me at person@example.com',
+            'website': '',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(CompanyReview.objects.exists())
+
+    def test_company_review_must_reference_a_company_with_jobs(self):
+        company_without_jobs = Company.objects.create(name='Not Listed Employer', location='Egypt')
+        response = self.client.post(reverse('company_reviews'), {
+            'company': company_without_jobs.pk, 'role_title': 'Engineer',
+            'experience_type': 'candidate', 'overall_rating': 4,
+            'interview_process': 'A technical interview.', 'website': '',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertFormError(
+            response.context['form'], 'company',
+            'Select a valid choice. That choice is not one of the available choices.',
+        )
+        self.assertFalse(CompanyReview.objects.exists())
 
     def test_subscription_form_creates_alert(self):
         response = self.client.post(reverse('subscribe'), {

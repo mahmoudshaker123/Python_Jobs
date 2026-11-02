@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.nav_reviews }} - MENA Tech Careers{% endblock %}
+{% block content %}
+<section class="review-hero">
+  <div class="container-fluid site-container">
+    <div class="review-hero-copy">
+      <span class="terminal-label">// {{ tr.review_kicker }}</span>
+      <h1>{{ tr.review_title }}</h1>
+      <p>{{ tr.review_intro }}</p>
+    </div>
+    <div class="review-stats">
+      <div><strong>{{ review_count }}</strong><span>{{ tr.review_total }}</span></div>
+      <div><strong>{{ company_count }}</strong><span>{{ tr.review_companies }}</span></div>
+      <div><strong>{% if average_rating %}{{ average_rating|floatformat:1 }}{% else %}—{% endif %}</strong><span>{{ tr.review_average }}</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="review-layout container-fluid site-container">
+  <div class="review-feed">
+    <form method="get" class="review-search">
+      <input class="form-control" name="company" value="{{ company_query }}" placeholder="{{ tr.review_search }}" aria-label="{{ tr.review_search }}">
+      <button class="btn btn-brand" type="submit">{{ tr.search_reviews }}</button>
+    </form>
+    {% for review in page_obj %}
+    <article class="company-review-card">
+      <div class="company-review-heading">
+        <div><span class="review-role-label">{{ review.get_experience_type_display }}{% if review.country %} · {{ review.country }}{% endif %}</span><h2><a href="{{ review.company.get_absolute_url }}">{{ review.company.name }}</a></h2><p>{{ review.role_title }}</p></div>
+        <div class="review-rating"><strong>{{ review.overall_rating }}/5</strong><span aria-label="{{ review.overall_rating }} out of 5 stars">{% for _ in '12345' %}{% if forloop.counter <= review.overall_rating %}★{% else %}☆{% endif %}{% endfor %}</span></div>
+      </div>
+      <div class="review-facts">
+        {% if review.interview_rating %}<span><b>{{ tr.review_interview_rating }}:</b> {{ review.interview_rating }}/5</span>{% endif %}
+        {% if review.would_recommend != None %}<span>{% if review.would_recommend %}{{ tr.review_recommended_yes }}{% else %}{{ tr.review_recommended_no }}{% endif %}</span>{% endif %}
+        {% if review.salary_currency %}<span><b>{{ tr.review_salary }}:</b> {{ review.salary_min|default:'—' }}–{{ review.salary_max|default:'—' }} {{ review.salary_currency }}{% if review.salary_period %} / {{ review.salary_period }}{% endif %}</span>{% endif %}
+        {% if review.response_days != None %}<span><b>{{ tr.review_response_time }}:</b> {{ review.response_days }} {{ tr.review_days }}</span>{% endif %}
+        {% if review.interview_outcome %}<span>{{ review.get_interview_outcome_display }}</span>{% endif %}
+      </div>
+      {% if review.interview_process %}<div class="review-copy"><h3>{{ tr.review_process_title }}</h3><p>{{ review.interview_process|linebreaksbr }}</p></div>{% endif %}
+      <div class="review-opinions">
+        {% if review.pros %}<div><h3>{{ tr.review_pros_title }}</h3><p>{{ review.pros|linebreaksbr }}</p></div>{% endif %}
+        {% if review.cons %}<div><h3>{{ tr.review_cons_title }}</h3><p>{{ review.cons|linebreaksbr }}</p></div>{% endif %}
+      </div>
+      <footer class="review-card-footer"><span><i class="fa-solid fa-user-secret"></i> {{ tr.review_kicker }}</span><time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:'M Y' }}</time></footer>
+    </article>
+    {% empty %}<div class="empty-state">{{ tr.no_reviews }}</div>{% endfor %}
+    {% if page_obj.has_other_pages %}<nav class="review-pagination" aria-label="Pagination">
+      {% if page_obj.has_previous %}<a href="?company={{ company_query|urlencode }}&page={{ page_obj.previous_page_number }}">←</a>{% endif %}
+      <span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?company={{ company_query|urlencode }}&page={{ page_obj.next_page_number }}">→</a>{% endif %}
+    </nav>{% endif %}
+  </div>
+
+  <aside class="review-submit-panel" id="share-review">
+    <span class="terminal-label">// {{ tr.share_experience }}</span>
+    <h2>{{ tr.share_experience }}</h2>
+    <p>{{ tr.review_pending_note }}</p>
+    <form method="post" class="review-form" novalidate>
+      {% csrf_token %}
+      <div class="review-honeypot" aria-hidden="true">{{ form.website }}</div>
+      <fieldset class="review-form-section">
+        <legend><span>1</span>{{ tr.review_section_basics }}</legend>
+        <label>{{ tr.review_company }}<input class="form-control company-option-filter" id="company-option-filter" type="search" placeholder="{{ tr.review_company_search }}" autocomplete="off">{{ form.company }}<small class="field-help">{{ tr.review_company_help }}</small>{% for error in form.company.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ tr.review_role }} {{ form.role_title }}{% for error in form.role_title.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+        <div class="review-form-grid"><label>{{ tr.review_country }} {{ form.country }}</label><label>{{ tr.review_experience_type }} {{ form.experience_type }}</label></div>
+        <div class="review-form-grid"><label>{{ tr.review_rating }} {{ form.overall_rating }}{% for error in form.overall_rating.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label><label>{{ tr.review_recommend }} {{ form.would_recommend }}</label></div>
+      </fieldset>
+      <fieldset class="review-form-section">
+        <legend><span>2</span>{{ tr.review_section_interview }}</legend>
+        <label>{{ tr.review_process }} {{ form.interview_process }}{% for error in form.interview_process.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+        <div class="review-form-grid"><label>{{ tr.review_interview_rating }} {{ form.interview_rating }}</label><label>{{ tr.review_outcome }} {{ form.interview_outcome }}</label></div>
+        <label>{{ tr.review_response_days }} {{ form.response_days }}</label>
+      </fieldset>
+      <fieldset class="review-form-section">
+        <legend><span>3</span>{{ tr.review_section_salary }}</legend>
+        <div class="review-form-grid"><label>{{ tr.review_salary_min }} {{ form.salary_min }}</label><label>{{ tr.review_salary_max }} {{ form.salary_max }}{% for error in form.salary_max.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label></div>
+        <div class="review-form-grid"><label>{{ tr.review_currency }} {{ form.salary_currency }}{% for error in form.salary_currency.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label><label>{{ tr.review_period }} {{ form.salary_period }}</label></div>
+      </fieldset>
+      <fieldset class="review-form-section">
+        <legend><span>4</span>{{ tr.review_section_opinion }}</legend>
+        <label>{{ tr.review_pros }} {{ form.pros }}{% for error in form.pros.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+        <label>{{ tr.review_cons }} {{ form.cons }}{% for error in form.cons.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</label>
+      </fieldset>
+      {% for error in form.non_field_errors %}<p class="field-error">{{ error }}</p>{% endfor %}
+      <p class="review-privacy"><i class="fa-solid fa-shield-halved"></i> {{ tr.review_privacy }}</p>
+      <p class="review-privacy">{{ tr.review_moderation }}</p>
+      <button class="btn btn-brand" type="submit">{{ tr.review_submit }} <i class="fa-solid fa-paper-plane"></i></button>
+    </form>
+  </aside>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const search = document.getElementById('company-option-filter');
+  const select = document.getElementById('{{ form.company.id_for_label }}');
+  if (!search || !select) return;
+  const options = Array.from(select.options);
+  search.addEventListener('input', function () {
+    const query = search.value.trim().toLocaleLowerCase();
+    options.forEach(function (option, index) {
+      if (index === 0) return;
+      const visible = !query || option.text.toLocaleLowerCase().includes(query);
+      option.hidden = !visible;
+      option.disabled = !visible;
+    });
+    const firstVisible = options.find((option, index) => index > 0 && !option.hidden);
+    if (query && firstVisible && (!select.value || !select.selectedOptions[0] || select.selectedOptions[0].hidden)) {
+      select.value = firstVisible.value;
+    }
+  });
+});
+</script>
+{% endblock %}
