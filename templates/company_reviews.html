@@ -23,7 +23,7 @@
       <button class="btn btn-brand" type="submit">{{ tr.search_reviews }}</button>
     </form>
     {% for review in page_obj %}
-    <article class="company-review-card">
+    <article class="company-review-card" id="review-{{ review.pk }}">
       <div class="company-review-heading">
         <div><span class="review-role-label">{{ review.get_experience_type_display }}{% if review.country %} · {{ review.country }}{% endif %}</span><h2><a href="{{ review.company.get_absolute_url }}">{{ review.company.name }}</a></h2><p>{{ review.role_title }}</p></div>
         <div class="review-rating"><strong>{{ review.overall_rating }}/5</strong><span aria-label="{{ review.overall_rating }} out of 5 stars">{% for _ in '12345' %}{% if forloop.counter <= review.overall_rating %}★{% else %}☆{% endif %}{% endfor %}</span></div>
@@ -40,6 +40,7 @@
         {% if review.pros %}<div><h3>{{ tr.review_pros_title }}</h3><p>{{ review.pros|linebreaksbr }}</p></div>{% endif %}
         {% if review.cons %}<div><h3>{{ tr.review_cons_title }}</h3><p>{{ review.cons|linebreaksbr }}</p></div>{% endif %}
       </div>
+      {% include 'partials/review_votes.html' %}
       <footer class="review-card-footer"><span><i class="fa-solid fa-user-secret"></i> {{ tr.review_kicker }}</span><time datetime="{{ review.created_at|date:'c' }}">{{ review.created_at|date:'M Y' }}</time></footer>
     </article>
     {% empty %}<div class="empty-state">{{ tr.no_reviews }}</div>{% endfor %}

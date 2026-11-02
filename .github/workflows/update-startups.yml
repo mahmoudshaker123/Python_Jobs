@@ -1,0 +1,30 @@
+name: Refresh startup directory
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "43 * * * *"
+
+concurrency:
+  group: mena-tech-careers-startup-refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the protected production startup updater
+        env:
+          SITE_URL: https://menatechcareers.vercel.app
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          test -n "$SITE_URL"
+          test -n "$CRON_SECRET"
+          curl --fail --show-error --silent \
+            --max-time 240 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "${SITE_URL%/}/api/cron/update-startups/"

@@ -153,6 +153,54 @@ class CompanyReview(models.Model):
         return f'{self.company.name} — {self.role_title}'
 
 
+class CompanyReviewVote(models.Model):
+    class VoteType(models.TextChoices):
+        HELPFUL = 'helpful', 'Helpful'
+        INACCURATE = 'inaccurate', 'Not accurate'
+
+    review = models.ForeignKey(CompanyReview, on_delete=models.CASCADE, related_name='votes')
+    voter_hash = models.CharField(max_length=64)
+    value = models.CharField(max_length=12, choices=VoteType.choices)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('review', 'voter_hash'), name='unique_company_review_voter',
+        )]
+        indexes = [models.Index(fields=('review', 'value'), name='review_vote_count_idx')]
+
+
+class StartupSyncState(models.Model):
+    name = models.CharField(max_length=50, unique=True, default='startups')
+    is_running = models.BooleanField(default=False)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class StartupSyncRun(models.Model):
+    STATUS_CHOICES = [
+        ('running', 'Running'), ('success', 'Success'),
+        ('failed', 'Failed'), ('skipped', 'Skipped'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
+    trigger = models.CharField(max_length=50, default='manual')
+    started_at = models.DateTimeField(default=timezone.now)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    startups_seen = models.PositiveIntegerField(default=0)
+    startups_created = models.PositiveIntegerField(default=0)
+    startups_updated = models.PositiveIntegerField(default=0)
+    output = models.TextField(blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ('-started_at',)
+        verbose_name = 'Startup sync run'
+        verbose_name_plural = 'Startup sync runs'
+
+
 class Subscriber(models.Model):
     email = models.EmailField(unique=True)
     subscribed_at = models.DateTimeField(auto_now_add=True)

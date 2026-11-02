@@ -54,6 +54,7 @@ def run_job_update(trigger='manual', *, sources=None, limit=None, delay=None):
             ('scrape_startups', {
                 'limit': min(command_options['limit'], 80),
                 'delay': command_options['delay'],
+                'trigger': f'jobs-{trigger}'[:50],
                 'stdout': stdout,
                 'stderr': stderr,
             }),

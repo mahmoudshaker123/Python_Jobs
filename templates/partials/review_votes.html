@@ -1,0 +1,10 @@
+<div class="review-votes" aria-label="Review feedback">
+  <form method="post" action="{% url 'company_review_vote' review_id=review.pk %}">
+    {% csrf_token %}<input type="hidden" name="vote" value="helpful"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="review-vote-button{% if review.my_vote == 'helpful' %} is-selected{% endif %}" aria-pressed="{% if review.my_vote == 'helpful' %}true{% else %}false{% endif %}"><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i> {{ tr.review_helpful }} <span>{{ review.helpful_votes }}</span></button>
+  </form>
+  <form method="post" action="{% url 'company_review_vote' review_id=review.pk %}">
+    {% csrf_token %}<input type="hidden" name="vote" value="inaccurate"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <button type="submit" class="review-vote-button{% if review.my_vote == 'inaccurate' %} is-selected{% endif %}" aria-pressed="{% if review.my_vote == 'inaccurate' %}true{% else %}false{% endif %}"><i class="fa-regular fa-flag" aria-hidden="true"></i> {{ tr.review_inaccurate }} <span>{{ review.inaccurate_votes }}</span></button>
+  </form>
+</div>

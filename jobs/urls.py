@@ -13,10 +13,12 @@ urlpatterns = [
     path('startups/', views.startup_list, name='startup_list'),
     path('match/', views.cv_match, name='cv_match'),
     path('company-reviews/', views.company_reviews, name='company_reviews'),
+    path('company-reviews/<int:review_id>/vote/', views.company_review_vote, name='company_review_vote'),
     path('language/<str:code>/', views.set_site_language, name='set_site_language'),
     path('subscribe/', views.subscribe, name='subscribe'),
     path('alerts/<uuid:token>/', views.manage_subscription, name='manage_subscription'),
     path('alerts/<uuid:token>/unsubscribe/', views.unsubscribe, name='unsubscribe'),
     path('api/cron/update-jobs/', views.cron_update_jobs, name='cron_update_jobs'),
+    path('api/cron/update-startups/', views.cron_update_startups, name='cron_update_startups'),
     path('api/cron/send-alerts/', views.cron_send_alerts, name='cron_send_alerts'),
 ]

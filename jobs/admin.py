@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Company, CompanyReview, EmailSubscription, Job, JobAlertDelivery, JobSyncRun, Startup
+from .models import (
+    Company, CompanyReview, CompanyReviewVote, EmailSubscription, Job,
+    JobAlertDelivery, JobSyncRun, Startup, StartupSyncRun,
+)
 
 
 admin.site.site_header = 'MENA Tech Careers Control Center'
@@ -43,6 +46,37 @@ class CompanyReviewAdmin(admin.ModelAdmin):
     @admin.action(description='Hide selected reviews')
     def hide_reviews(self, request, queryset):
         queryset.update(is_approved=False)
+
+
+@admin.register(CompanyReviewVote)
+class CompanyReviewVoteAdmin(admin.ModelAdmin):
+    list_display = ('review', 'value', 'created_at')
+    list_filter = ('value', 'created_at')
+    search_fields = ('review__company__name', 'review__role_title')
+    readonly_fields = ('review', 'voter_hash', 'value', 'created_at')
+    date_hierarchy = 'created_at'
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(StartupSyncRun)
+class StartupSyncRunAdmin(admin.ModelAdmin):
+    list_display = ('started_at', 'status', 'trigger', 'startups_seen', 'startups_created', 'startups_updated', 'finished_at')
+    list_filter = ('status', 'trigger', 'started_at')
+    search_fields = ('output', 'error')
+    readonly_fields = ('status', 'trigger', 'started_at', 'finished_at', 'startups_seen', 'startups_created', 'startups_updated', 'output', 'error')
+    date_hierarchy = 'started_at'
+    ordering = ('-started_at',)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 @admin.register(Job)

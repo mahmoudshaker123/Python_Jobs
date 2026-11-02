@@ -1,6 +1,9 @@
+import hashlib
 import secrets
 import re
+import uuid
 from datetime import timedelta
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -8,14 +11,46 @@ from django.core.paginator import Paginator
 from django.db.models import Avg, Count, F, Max, Min, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from .forms import CompanyReviewForm, CVMatchForm, SubscriberForm
 from .matching import extract_cv_text, rank_jobs_for_cv
-from .models import Company, CompanyReview, EmailSubscription, Job, Startup
+from .models import Company, CompanyReview, CompanyReviewVote, EmailSubscription, Job, Startup, StartupSyncRun
 from .notifications import send_matching_alerts, send_unsent_welcome_emails
 from .site_i18n import get_site_language
 from .sync import run_job_update
+from .startup_sync import run_startup_update
+
+REVIEW_VOTER_COOKIE = 'mena_review_voter'
+
+
+def _review_voter_hash(request):
+    token = request.COOKIES.get(REVIEW_VOTER_COOKIE, '')
+    try:
+        uuid.UUID(token)
+    except (ValueError, TypeError, AttributeError):
+        return None
+    return hashlib.sha256(token.encode('ascii')).hexdigest()
+
+
+def _reviews_with_vote_counts(queryset, request):
+    reviews = list(queryset.annotate(
+        helpful_votes=Count('votes', filter=Q(votes__value=CompanyReviewVote.VoteType.HELPFUL)),
+        inaccurate_votes=Count('votes', filter=Q(votes__value=CompanyReviewVote.VoteType.INACCURATE)),
+    ))
+    voter_hash = _review_voter_hash(request)
+    if voter_hash and reviews:
+        vote_map = dict(CompanyReviewVote.objects.filter(
+            review_id__in=[review.pk for review in reviews], voter_hash=voter_hash,
+        ).values_list('review_id', 'value'))
+        for review in reviews:
+            review.my_vote = vote_map.get(review.pk, '')
+    else:
+        for review in reviews:
+            review.my_vote = ''
+    return reviews
 
 
 def index(request):
@@ -155,6 +190,7 @@ def company_detail(request, id, slug=None):
     )
     jobs = company.job_set.order_by('-posted_at')
     reviews = company.reviews.filter(is_approved=True)
+    visible_reviews = _reviews_with_vote_counts(reviews, request)
     review_stats = reviews.aggregate(
         count=Count('id'),
         average_rating=Avg('overall_rating'),
@@ -191,7 +227,7 @@ def company_detail(request, id, slug=None):
         'company': company,
         'jobs': jobs[:20],
         'job_count': jobs.count(),
-        'reviews': reviews[:12],
+        'reviews': visible_reviews[:12],
         'review_stats': review_stats,
         'recommendation_percent': recommendation_percent,
         'salary_summaries': salary_summaries,
@@ -339,20 +375,22 @@ def company_reviews(request):
             messages.error(request, 'Please wait a minute before submitting another review.')
         elif form.is_valid():
             review = form.save(commit=False)
-            review.is_approved = False
+            review.moderation_notes = moderation_reason(review)
+            review.is_approved = not bool(review.moderation_notes)
             review.save()
             request.session['last_company_review_submission'] = timezone.now().timestamp()
-            messages.success(
-                request,
-                'Thanks. Your anonymous review is queued for moderation before it appears publicly.',
-            )
+            if review.is_approved:
+                messages.success(request, 'Thanks. Your review is now published.')
+                target = reverse('company_reviews') + '?' + urlencode({'company': review.company.name})
+                return redirect(f'{target}#review-{review.pk}')
+            messages.success(request, 'Thanks. Your review was held for moderator review before publication.')
             return redirect(review.company.get_absolute_url())
 
     query = request.GET.get('company', '').strip()
     reviews = CompanyReview.objects.filter(is_approved=True)
     if query:
         reviews = reviews.filter(company__name__icontains=query)
-    reviews = reviews.select_related('company')
+    reviews = _reviews_with_vote_counts(reviews.select_related('company'), request)
     summary = CompanyReview.objects.filter(is_approved=True).aggregate(
         review_count=Count('id'),
         company_count=Count('company', distinct=True),
@@ -366,6 +404,35 @@ def company_reviews(request):
         'company_count': summary['company_count'] or 0,
         'average_rating': summary['average_rating'],
     })
+
+
+def company_review_vote(request, review_id):
+    if request.method != 'POST':
+        return redirect('company_reviews')
+    review = get_object_or_404(CompanyReview, pk=review_id, is_approved=True)
+    value = request.POST.get('vote', '')
+    if value not in CompanyReviewVote.VoteType.values:
+        messages.error(request, 'Choose whether this review was helpful or inaccurate.')
+        return redirect('company_reviews')
+
+    token = request.COOKIES.get(REVIEW_VOTER_COOKIE, '')
+    try:
+        uuid.UUID(token)
+    except (ValueError, TypeError, AttributeError):
+        token = str(uuid.uuid4())
+    voter_hash = hashlib.sha256(token.encode('ascii')).hexdigest()
+    CompanyReviewVote.objects.update_or_create(
+        review=review, voter_hash=voter_hash, defaults={'value': value},
+    )
+    target = request.POST.get('next', '')
+    if not url_has_allowed_host_and_scheme(target, allowed_hosts={request.get_host()}):
+        target = reverse('company_reviews')
+    response = redirect(target)
+    response.set_cookie(
+        REVIEW_VOTER_COOKIE, token, max_age=31536000, httponly=True,
+        secure=request.is_secure(), samesite='Lax',
+    )
+    return response
 
 
 def set_site_language(request, code):
@@ -440,8 +507,42 @@ def cron_update_jobs(request):
         'status': run.status,
         'run_id': run.pk,
         'expired_jobs_removed': run.jobs_removed,
+        'startup_sync': _latest_startup_run('jobs-scheduled-cron'),
         'finished_at': run.finished_at.isoformat() if run.finished_at else None,
     }, status=status_code)
+
+
+def _latest_startup_run(trigger):
+    run = StartupSyncRun.objects.filter(trigger=trigger).first()
+    if not run:
+        return None
+    return {
+        'status': run.status,
+        'seen': run.startups_seen,
+        'created': run.startups_created,
+        'updated': run.startups_updated,
+        'error': run.error or None,
+    }
+
+
+def cron_update_startups(request):
+    expected = f'Bearer {settings.CRON_SECRET}'
+    supplied = request.headers.get('Authorization', '')
+    if not settings.CRON_SECRET or not secrets.compare_digest(supplied, expected):
+        return JsonResponse({'ok': False, 'error': 'Unauthorized'}, status=401)
+    try:
+        run = run_startup_update(trigger='scheduled-cron')
+    except Exception as exc:
+        return JsonResponse({'ok': False, 'status': 'failed', 'error': str(exc)}, status=502)
+    return JsonResponse({
+        'ok': run.status in {'success', 'skipped'},
+        'status': run.status,
+        'run_id': run.pk,
+        'startups_seen': run.startups_seen,
+        'startups_created': run.startups_created,
+        'startups_updated': run.startups_updated,
+        'finished_at': run.finished_at.isoformat() if run.finished_at else None,
+    }, status=202 if run.status == 'skipped' else 200)
 
 
 def cron_send_alerts(request):

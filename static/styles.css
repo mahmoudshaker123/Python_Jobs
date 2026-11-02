@@ -393,6 +393,11 @@ button, input, select { font: inherit; }
 .review-copy p, .review-opinions p { margin: 0; color: #43534b; white-space: normal; overflow-wrap: anywhere; }
 .review-opinions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .review-card-footer { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1rem; color: var(--muted); font-size: .75rem; }
+.review-votes { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.1rem; }
+.review-votes form { margin: 0; }
+.review-vote-button { display: inline-flex; align-items: center; gap: .45rem; min-height: 38px; padding: .45rem .75rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: transparent; font: inherit; font-size: .82rem; cursor: pointer; transition: color .18s ease, border-color .18s ease, background .18s ease; }
+.review-vote-button:hover, .review-vote-button.is-selected { color: var(--blue-strong); border-color: var(--blue); background: color-mix(in srgb, var(--blue) 9%, transparent); }
+.review-vote-button span { min-width: 1.2em; font-weight: 700; }
 .review-submit-panel { position: sticky; top: 105px; padding: 1.5rem; border: 1px solid var(--line); border-top: 3px solid var(--mint); border-radius: 14px; background: var(--panel); }
 .review-submit-panel > h2 { margin: .55rem 0 .35rem; font-size: 1.45rem; }
 .review-submit-panel > p { color: var(--muted); font-size: .88rem; }
