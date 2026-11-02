@@ -48,26 +48,30 @@ def run_job_update(trigger='manual', *, sources=None, limit=None, delay=None):
         }
         if sources:
             command_options['sources'] = sources
-        scrape_error = None
-        try:
-            call_command('scrape_jobs', **command_options)
-            call_command(
-                'scrape_startups',
-                limit=min(command_options['limit'], 80),
-                delay=command_options['delay'],
-                stdout=stdout,
-                stderr=stderr,
-            )
-        except Exception as exc:
-            scrape_error = exc
+        scrape_errors = []
+        commands = (
+            ('scrape_jobs', command_options),
+            ('scrape_startups', {
+                'limit': min(command_options['limit'], 80),
+                'delay': command_options['delay'],
+                'stdout': stdout,
+                'stderr': stderr,
+            }),
+        )
+        for command_name, options in commands:
+            try:
+                call_command(command_name, **options)
+            except Exception as exc:
+                scrape_errors.append(f'{command_name}: {exc}')
+                stderr.write(f'{command_name} failed: {exc}\n')
         cutoff = timezone.now() - timedelta(days=settings.JOB_RETENTION_DAYS)
         expired = Job.objects.filter(posted_at__lt=cutoff)
         removed = expired.count()
         expired.delete()
         run.jobs_removed = removed
 
-        if scrape_error:
-            raise scrape_error
+        if scrape_errors:
+            raise RuntimeError('; '.join(scrape_errors))
 
         run.status = 'success'
         run.output = (stdout.getvalue() + '\n' + stderr.getvalue()).strip()[-12000:]

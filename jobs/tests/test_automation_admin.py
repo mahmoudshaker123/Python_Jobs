@@ -1,7 +1,9 @@
 from datetime import timedelta
+from io import StringIO
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -77,6 +79,42 @@ class CronUpdateTest(TestCase):
         run = JobSyncRun.objects.get()
         self.assertEqual(run.status, 'failed')
         self.assertEqual(run.jobs_removed, 1)
+
+    @patch('jobs.sync.call_command', side_effect=[RuntimeError('job source failure'), None])
+    def test_startup_scrape_runs_even_if_job_scrape_fails(self, call_command_mock):
+        response = self.client.get(
+            reverse('cron_update_jobs'),
+            HTTP_AUTHORIZATION='Bearer test-cron-secret-123',
+        )
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(call_command_mock.call_count, 2)
+        self.assertEqual(call_command_mock.call_args_list[1].args, ('scrape_startups',))
+        run = JobSyncRun.objects.get()
+        self.assertEqual(run.status, 'failed')
+        self.assertIn('scrape_jobs: job source failure', run.error)
+
+    def test_job_import_handles_duplicate_company_names(self):
+        first = Company.objects.create(name='Repeated Company', location='Cairo')
+        Company.objects.create(name='Repeated Company', location='Remote')
+        job_data = {
+            'title': 'Python Developer',
+            'company': 'Repeated Company',
+            'location': 'Cairo',
+            'description': 'Python role',
+            'requirements': 'Python',
+            'job_url': 'https://example.com/python-role',
+        }
+        with patch(
+            'jobs.management.commands.scrape_jobs.SCRAPERS',
+            {'test': ('TestSource', lambda **kwargs: [job_data])},
+        ):
+            call_command(
+                'scrape_jobs', sources='test', limit=1, delay=0,
+                keep_stale=True, stdout=StringIO(), stderr=StringIO(),
+            )
+
+        imported = Job.objects.get(job_url='https://example.com/python-role')
+        self.assertEqual(imported.company_id, first.pk)
 
     def test_alert_cron_rejects_missing_secret(self):
         response = self.client.get(reverse('cron_send_alerts'))

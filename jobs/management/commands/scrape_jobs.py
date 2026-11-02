@@ -61,10 +61,14 @@ class Command(BaseCommand):
                         data.get('description'),
                         data.get('requirements'),
                     )
-                    company, _ = Company.objects.get_or_create(
-                        name=data.get('company') or 'Company not disclosed',
-                        defaults={'location': data.get('location') or '', 'description': ''},
-                    )
+                    company_name = data.get('company') or 'Company not disclosed'
+                    company = Company.objects.filter(name=company_name).order_by('pk').first()
+                    if company is None:
+                        company = Company.objects.create(
+                            name=company_name,
+                            location=data.get('location') or '',
+                            description='',
+                        )
                     company_updates = {}
                     if data.get('company_url') and not company.website:
                         company_updates['website'] = data['company_url']
