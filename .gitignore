@@ -20,7 +20,12 @@ Thumbs.db
 .env
 *.env
 .env.local
+.env*.local
 .vercel/
+
+# Local agent tooling
+.agents/
+skills-lock.json
 
 # مجلد static أو media المؤقت
 staticfiles/
