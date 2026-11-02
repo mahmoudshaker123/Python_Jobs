@@ -545,9 +545,9 @@ body { background: var(--bg); color: var(--text); }
 .company-directory-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 3rem; }
 .company-directory-heading h1 { max-width: 850px; margin: .8rem 0; font-size: clamp(2.4rem, 4.6vw, 5rem); line-height: 1.03; }
 .company-directory-heading p { max-width: 720px; margin: 0; color: var(--muted); font-size: 1.05rem; }
-.company-directory-count { min-width: 180px; padding: 1.2rem; border-top: 3px solid var(--blue); background: rgba(255,255,255,.6); }
-.company-directory-count strong { display: block; font: 800 2.7rem/1 "Manrope", sans-serif; }
-.company-directory-count span { color: var(--muted); font-size: .72rem; text-transform: uppercase; }
+.company-directory-count { min-width: 210px; padding: .35rem 0 .35rem 1.6rem; border-inline-start: 2px solid var(--blue); background: transparent; }
+.company-directory-count strong { display: block; color: var(--text); font: 800 clamp(2.6rem, 4vw, 4rem)/.95 "Manrope", sans-serif; letter-spacing: -.06em; }
+.company-directory-count span { display: block; margin-top: .45rem; color: var(--muted); font: 700 .68rem/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
 .company-directory-body { padding: 34px 0 90px; }
 .company-filters { display: grid; grid-template-columns: minmax(280px, 1.6fr) minmax(180px, .7fr) auto auto; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 12px 34px rgba(29,48,41,.07); }
 .company-filter-search { display: flex; min-width: 0; align-items: center; gap: .7rem; padding: 0 .9rem; border: 1px solid #d4dfd5; border-radius: 10px; background: #f8faf7; }
@@ -643,7 +643,7 @@ body { background: var(--bg); color: var(--text); }
 @media (max-width: 767.98px) {
   .company-directory-hero { padding-top: 48px; }
   .company-directory-heading { grid-template-columns: 1fr; gap: 1.5rem; }
-  .company-directory-count { width: 100%; }
+  .company-directory-count { width: 100%; min-width: 0; padding: 1rem 0 0; border-inline-start: 0; border-top: 2px solid var(--blue); }
   .company-filters { grid-template-columns: 1fr; }
   .company-filter-search { grid-column: auto; }
   .company-filters .btn { width: 100%; }
