@@ -1,7 +1,9 @@
 from django.test import TestCase
 from django.urls import reverse
 
-from jobs.models import Company, EmailSubscription, Job
+from django.core.files.uploadedfile import SimpleUploadedFile
+
+from jobs.models import Company, EmailSubscription, Job, Startup
 
 
 class JobViewsTest(TestCase):
@@ -24,7 +26,7 @@ class JobViewsTest(TestCase):
     def test_homepage_renders(self):
         response = self.client.get(reverse('index'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Build what comes')
+        self.assertContains(response, 'Tech careers, without the noise.')
         self.assertContains(response, 'MENA Tech Careers')
         self.assertContains(response, 'images/favicon.svg')
         self.assertContains(response, 'images/favicon-192.png')
@@ -56,6 +58,40 @@ class JobViewsTest(TestCase):
         response = self.client.get(reverse('job_list'), {'category': Job.Category.DATA_AI})
         self.assertContains(response, 'Data Analyst')
         self.assertNotContains(response, 'Senior Django Engineer')
+
+    def test_language_switch_sets_arabic_layout(self):
+        response = self.client.get(reverse('set_site_language', args=['ar']), {'next': '/'})
+        self.assertRedirects(response, '/')
+        response = self.client.get(reverse('index'))
+        self.assertContains(response, 'dir="rtl"')
+        self.assertContains(response, 'وظائف تقنية')
+
+    def test_startup_directory_filters_hiring_companies(self):
+        Startup.objects.create(
+            name='Cairo Cloud', slug='cairo-cloud', country='Egypt',
+            sectors=['Cloud', 'SaaS'], stage='Seed', hiring_roles=4,
+            source_url='https://techny.dev/companies/cairo-cloud',
+        )
+        Startup.objects.create(
+            name='Quiet ERP', slug='quiet-erp', country='UAE',
+            sectors=['ERP'], stage='Bootstrapped', hiring_roles=0,
+            source_url='https://techny.dev/companies/quiet-erp',
+        )
+        response = self.client.get(reverse('startup_list'), {'hiring': '1'})
+        self.assertContains(response, 'Cairo Cloud')
+        self.assertNotContains(response, 'Quiet ERP')
+
+    def test_cv_match_accepts_text_cv_without_storing_it(self):
+        cv = SimpleUploadedFile(
+            'mahmoud-cv.txt',
+            (b'Python Django REST APIs PostgreSQL Docker cloud backend developer '
+             b'with six years of software engineering experience and data integrations.'),
+            content_type='text/plain',
+        )
+        response = self.client.post(reverse('cv_match'), {'cv': cv})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Senior Django Engineer')
+        self.assertEqual(response.context['form'].files['cv'].name, 'mahmoud-cv.txt')
 
     def test_subscription_form_creates_alert(self):
         response = self.client.post(reverse('subscribe'), {

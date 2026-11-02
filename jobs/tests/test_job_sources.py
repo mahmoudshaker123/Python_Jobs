@@ -6,7 +6,10 @@ from jobs.job_sources import (
     parse_linkedin_detail,
     parse_linkedin_listing,
     parse_mourjan_listing,
+    parse_techny_detail,
+    parse_techny_listing,
 )
+from jobs.startup_sources import parse_techny_startups
 
 
 class BaytParserTest(SimpleTestCase):
@@ -82,3 +85,63 @@ class LinkedInParserTest(SimpleTestCase):
         self.assertIn('Odoo modules', details['description'])
         self.assertEqual(details['job_type'], 'Contract')
         self.assertIn('Mid-Senior level', details['requirements'])
+
+
+class TechnyParserTest(SimpleTestCase):
+    def test_extracts_public_job_row(self):
+        html = '''
+        <main><div class="row">
+          <div><a class="title rlink" href="/jobs/odoo-developer-acme-123">Odoo Developer</a>
+            <div class="tags"><span>ERP &amp; CRM</span><span>Senior</span><span>Python</span></div>
+          </div>
+          <div class="c-co"><img src="/logos/acme.png"><a href="/companies/acme">Acme ERP</a></div>
+          <div class="c-where"><span>Cairo - remote OK</span></div>
+          <div class="c-pay"><span class="pay">$2k-$3k</span></div>
+          <div class="c-when">2d</div>
+        </div></main>
+        '''
+        jobs = parse_techny_listing(html)
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0]['title'], 'Odoo Developer')
+        self.assertEqual(jobs[0]['company'], 'Acme ERP')
+        self.assertEqual(jobs[0]['seniority'], 'Senior')
+        self.assertTrue(jobs[0]['is_remote'])
+        self.assertEqual(jobs[0]['source'], 'Techny')
+
+    def test_extracts_public_json_ld_detail(self):
+        html = '''
+        <script type="application/ld+json">{
+          "@type": "JobPosting",
+          "description": "<p>Build Odoo modules with Python.</p>",
+          "datePosted": "2026-11-01",
+          "hiringOrganization": {
+            "name": "Acme ERP",
+            "sameAs": "https://acme.example",
+            "logo": "https://acme.example/logo.png"
+          }
+        }</script>
+        '''
+        details = parse_techny_detail(html)
+        self.assertIn('Build Odoo modules', details['description'])
+        self.assertEqual(details['company_website'], 'https://acme.example')
+
+    def test_extracts_public_startup_directory_row(self):
+        html = '''
+        <div class="sdtable"><div class="sdrow" role="row">
+          <div class="sdco" role="cell">
+            <img src="/logos/cloud.png"><a class="nm" href="/companies/cloud-mena">Cloud MENA</a>
+            <small>Egypt &middot; Cloud, SaaS</small>
+          </div>
+          <div role="cell">Seed</div>
+          <div role="cell">Seed &middot; Oct 2026</div>
+          <div role="cell">$2M</div>
+          <div class="sdinv" role="cell"><a>Example VC</a></div>
+          <div role="cell">5 roles</div>
+        </div></div>
+        '''
+        startups = parse_techny_startups(html)
+        self.assertEqual(len(startups), 1)
+        self.assertEqual(startups[0]['name'], 'Cloud MENA')
+        self.assertEqual(startups[0]['country'], 'Egypt')
+        self.assertIn('Cloud, SaaS', startups[0]['sectors'])
+        self.assertEqual(startups[0]['hiring_roles'], 5)

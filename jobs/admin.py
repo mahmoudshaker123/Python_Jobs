@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Company, EmailSubscription, Job, JobAlertDelivery, JobSyncRun
+from .models import Company, EmailSubscription, Job, JobAlertDelivery, JobSyncRun, Startup
 
 
 admin.site.site_header = 'MENA Tech Careers Control Center'
@@ -16,6 +16,14 @@ class CompanyAdmin(admin.ModelAdmin):
     list_display = ('name', 'location')
     list_per_page = 30
     ordering = ('name',)
+
+
+@admin.register(Startup)
+class StartupAdmin(admin.ModelAdmin):
+    list_display = ('name', 'country', 'stage', 'hiring_roles', 'source', 'updated_at')
+    list_filter = ('country', 'stage', 'source')
+    search_fields = ('name', 'country', 'stage')
+    ordering = ('-hiring_roles', 'name')
 
 
 @admin.register(Job)

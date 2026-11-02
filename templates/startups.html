@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ tr.nav_startups }} - MENA Tech Careers{% endblock %}
+{% block content %}
+<section class="hub-hero">
+  <div class="container-fluid site-container">
+    <span class="terminal-label">{{ tr.startups_kicker }}</span>
+    <div class="hub-title"><h1>{{ tr.startups_title_page }}</h1><p>{{ tr.startups_intro }}</p></div>
+    <div class="hub-kpis">
+      <div><strong>{{ startup_count }}</strong><span>{{ tr.startups_count }}</span></div>
+      <div><strong>{{ hiring_count }}</strong><span>{{ tr.hiring_now }}</span></div>
+      <div><strong>{{ country_count }}</strong><span>{{ tr.countries }}</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="startup-dashboard">
+  <div class="container-fluid site-container">
+    <div class="dashboard-heading"><div><span class="terminal-label">{{ tr.startups_kicker }}</span><h2>{{ tr.startup_snapshot }}</h2></div></div>
+    <div class="dashboard-grid">
+      <section class="dashboard-panel rounds-panel">
+        <div class="dashboard-panel-heading"><div><span class="dashboard-eyebrow">{{ tr.latest_rounds }}</span><p>{{ tr.rounds_note }}</p></div><span class="dashboard-total">{{ latest_rounds|length }}</span></div>
+        {% for startup in latest_rounds %}
+          <a class="round-entry" href="{{ startup.source_url }}" target="_blank" rel="noopener"><span class="round-mark">{{ startup.name|slice:":1" }}</span><span class="round-company"><strong>{{ startup.name }}</strong><small>{{ startup.country }}{% if startup.stage %} · {{ startup.stage }}{% endif %}</small><small class="round-detail">{{ startup.last_round }}</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+        {% empty %}<p class="dashboard-empty">{{ tr.no_round_data }}</p>{% endfor %}
+      </section>
+      <section class="dashboard-panel sector-panel">
+        <div class="dashboard-panel-heading"><div><span class="dashboard-eyebrow">{{ tr.where_money_went }}</span><p>{{ tr.sector_count_note }}</p></div></div>
+        {% for item in sector_distribution %}<div class="sector-bar-row"><span>{{ item.name }}</span><span class="sector-bar"><i style="width: {{ item.width }}%"></i></span><b>{{ item.count }}</b></div>
+        {% empty %}<p class="dashboard-empty">{{ tr.no_round_data }}</p>{% endfor %}
+      </section>
+      <section class="dashboard-panel hiring-panel">
+        <div class="dashboard-panel-heading"><div><span class="dashboard-eyebrow">{{ tr.hiring_now_title }}</span><p>{{ hiring_count }} {{ tr.hiring_now|lower }}</p></div><a href="{% url 'startup_list' %}?hiring=1">{{ tr.view_all }} →</a></div>
+        {% for startup in hiring_startups %}<a class="hiring-entry" href="{{ startup.source_url }}" target="_blank" rel="noopener"><span class="hiring-logo">{% if startup.logo_url %}<img src="{{ startup.logo_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}{{ startup.name|slice:":1" }}{% endif %}</span><strong>{{ startup.name }}</strong><small>{{ startup.hiring_roles }} {{ tr.open_roles }}</small></a>
+        {% empty %}<p class="dashboard-empty">—</p>{% endfor %}
+        <div class="hire-categories"><span class="dashboard-eyebrow">{{ tr.what_they_hire_for }}</span>
+          {% for item in role_categories %}<div class="hire-category"><span>{{ item.label }}</span><b>{{ item.count }}</b><span class="hire-meter"><i style="width: {{ item.width }}%"></i></span></div>
+          {% empty %}<p class="dashboard-empty">—</p>{% endfor %}
+          <small class="dashboard-source">{{ role_category_total }} {{ tr.jobs_category_note }}</small>
+        </div>
+      </section>
+    </div>
+  </div>
+</section>
+
+<section class="hub-directory">
+  <div class="container-fluid site-container">
+    <form method="get" class="directory-filters">
+      <label class="filter-search"><i class="fa-solid fa-magnifying-glass"></i><input name="q" value="{{ search_query }}" placeholder="{{ tr.search_startup }}"></label>
+      <select name="country"><option value="">{{ tr.any_country }}</option>{% for value in countries %}<option value="{{ value }}" {% if selected_country == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+      <select name="stage"><option value="">{{ tr.any_stage }}</option>{% for value in stages %}<option value="{{ value }}" {% if selected_stage == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+      <select name="sector"><option value="">{{ tr.any_sector }}</option>{% for value in sectors %}<option value="{{ value }}" {% if selected_sector == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select>
+      <label class="switch-filter"><input type="checkbox" name="hiring" value="1" {% if selected_hiring == '1' %}checked{% endif %}><span>{{ tr.hiring_now }}</span></label>
+      <button class="btn btn-brand">{{ tr.find_roles }}</button>
+    </form>
+    <div class="startup-table-head"><span>{{ page_obj.paginator.count }} {{ tr.startups_count }}</span><a href="{% url 'startup_list' %}">{{ tr.clear_filters }}</a></div>
+    <div class="startup-table">
+      <div class="startup-row startup-heading"><span>{{ tr.startup }}</span><span>{{ tr.stage }}</span><span>{{ tr.last_round }}</span><span>{{ tr.raised }}</span><span>{{ tr.backed_by }}</span><span>{{ tr.hiring }}</span></div>
+      {% for startup in page_obj %}
+        <article class="startup-row"><div class="startup-name">{% if startup.logo_url %}<img src="{{ startup.logo_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% else %}<span>{{ startup.name|slice:":1" }}</span>{% endif %}<div><a href="{{ startup.source_url }}" target="_blank" rel="noopener">{{ startup.name }}</a><small>{{ startup.country }} · {{ startup.sectors|join:", " }}</small></div></div><div data-label="{{ tr.stage }}">{{ startup.stage|default:"-" }}</div><div data-label="{{ tr.last_round }}">{{ startup.last_round|default:"-" }}</div><div data-label="{{ tr.raised }}">{{ startup.total_raised|default:"-" }}</div><div data-label="{{ tr.backed_by }}">{{ startup.investors|join:", "|default:"-" }}</div><div data-label="{{ tr.hiring }}">{% if startup.hiring_roles %}<b>{{ startup.hiring_roles }} {{ tr.open_roles }}</b>{% else %}-{% endif %}</div></article>
+      {% empty %}<div class="empty-state">No startup matches yet.</div>{% endfor %}
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}<nav class="pagination-wrap"><ul class="pagination">{% if page_obj.has_previous %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.previous_page_number }}">←</a></li>{% endif %}<li><span class="current">{{ page_obj.number }}</span></li>{% if page_obj.has_next %}<li><a href="?{% if filter_query %}{{ filter_query }}&{% endif %}page={{ page_obj.next_page_number }}">→</a></li>{% endif %}</ul></nav>{% endif %}
+  </div>
+</section>
+{% endblock %}

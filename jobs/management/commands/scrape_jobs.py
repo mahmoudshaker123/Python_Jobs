@@ -1,5 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from jobs.job_sources import SCRAPERS, SourceUnavailable, is_allowed_linkedin_location
 from jobs.classification import classify_job
@@ -64,6 +65,17 @@ class Command(BaseCommand):
                         name=data.get('company') or 'Company not disclosed',
                         defaults={'location': data.get('location') or '', 'description': ''},
                     )
+                    company_updates = {}
+                    if data.get('company_url') and not company.website:
+                        company_updates['website'] = data['company_url']
+                    if data.get('company_website'):
+                        company_updates['website'] = data['company_website']
+                    if data.get('company_logo_url'):
+                        company_updates['logo_url'] = data['company_logo_url']
+                    if company_updates:
+                        Company.objects.filter(pk=company.pk).update(**company_updates)
+                        for field, value in company_updates.items():
+                            setattr(company, field, value)
                     defaults = {
                         'title': data['title'][:255],
                         'company': company,
@@ -74,6 +86,10 @@ class Command(BaseCommand):
                         'source': source_name,
                         'category': data.get('category') or category,
                         'skills': data.get('skills') or skills,
+                        'seniority': data.get('seniority') or '',
+                        'salary_text': data.get('salary_text') or '',
+                        'is_remote': bool(data.get('is_remote')) or 'remote' in (data.get('location') or '').lower(),
+                        'verified_at': timezone.now(),
                     }
                     if data.get('posted_at'):
                         defaults['posted_at'] = data['posted_at']

@@ -8,6 +8,8 @@ class Company(models.Model):
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
+    website = models.URLField(max_length=500, blank=True)
+    logo_url = models.URLField(max_length=500, blank=True)
 
     def __str__(self):
         return self.name
@@ -52,11 +54,37 @@ class Job(models.Model):
         db_index=True,
     )
     skills = models.JSONField(default=list, blank=True)
+    seniority = models.CharField(max_length=40, blank=True)
+    salary_text = models.CharField(max_length=120, blank=True)
+    is_remote = models.BooleanField(default=False, db_index=True)
+    verified_at = models.DateTimeField(default=timezone.now)
     scraped_at = models.DateTimeField(default=timezone.now, db_index=True, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
+
+
+class Startup(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    slug = models.SlugField(max_length=255, unique=True)
+    country = models.CharField(max_length=100, blank=True, db_index=True)
+    sectors = models.JSONField(default=list, blank=True)
+    stage = models.CharField(max_length=80, blank=True, db_index=True)
+    last_round = models.CharField(max_length=180, blank=True)
+    total_raised = models.CharField(max_length=80, blank=True)
+    investors = models.JSONField(default=list, blank=True)
+    hiring_roles = models.PositiveIntegerField(default=0, db_index=True)
+    logo_url = models.URLField(max_length=500, blank=True)
+    source_url = models.URLField(max_length=500)
+    source = models.CharField(max_length=100, default='Techny')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ('-hiring_roles', 'name')
+
+    def __str__(self):
+        return self.name
 
 class Subscriber(models.Model):
     email = models.EmailField(unique=True)

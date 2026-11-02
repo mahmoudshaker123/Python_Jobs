@@ -51,6 +51,13 @@ def run_job_update(trigger='manual', *, sources=None, limit=None, delay=None):
         scrape_error = None
         try:
             call_command('scrape_jobs', **command_options)
+            call_command(
+                'scrape_startups',
+                limit=min(command_options['limit'], 80),
+                delay=command_options['delay'],
+                stdout=stdout,
+                stderr=stderr,
+            )
         except Exception as exc:
             scrape_error = exc
         cutoff = timezone.now() - timedelta(days=settings.JOB_RETENTION_DAYS)

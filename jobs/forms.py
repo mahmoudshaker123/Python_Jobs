@@ -59,3 +59,21 @@ class SubscriberForm(forms.Form):
         subscription.last_email_error = ''
         subscription.save()
         return subscription
+
+
+class CVMatchForm(forms.Form):
+    cv = forms.FileField(
+        widget=forms.ClearableFileInput(attrs={
+            'accept': '.pdf,.txt,application/pdf,text/plain',
+            'class': 'cv-file-input',
+        }),
+    )
+
+    def clean_cv(self):
+        upload = self.cleaned_data['cv']
+        if upload.size > 5 * 1024 * 1024:
+            raise forms.ValidationError('The CV must be 5 MB or smaller.')
+        suffix = upload.name.lower().rsplit('.', 1)[-1] if '.' in upload.name else ''
+        if suffix not in {'pdf', 'txt'}:
+            raise forms.ValidationError('Upload a PDF or TXT file.')
+        return upload

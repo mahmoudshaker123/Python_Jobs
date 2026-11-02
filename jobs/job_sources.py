@@ -1,3 +1,4 @@
+import json
 import re
 import time
 from datetime import datetime, time as datetime_time, timedelta
@@ -627,10 +628,124 @@ def scrape_arbeitnow(limit=40, delay=0.2, output=None):
     return jobs
 
 
+def parse_techny_listing(html, base_url='https://techny.dev'):
+    """Parse Techny's public server-rendered job rows without using private APIs."""
+    soup = BeautifulSoup(html, 'html.parser')
+    jobs = []
+    seen = set()
+    for row in soup.select('main .row'):
+        title_link = row.select_one('a.title.rlink[href^="/jobs/"]')
+        if not title_link:
+            continue
+        url = urljoin(base_url, title_link.get('href', ''))
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        company_link = row.select_one('.c-co a')
+        company = clean_text(company_link.get_text(' ', strip=True) if company_link else '')
+        location_node = row.select_one('.c-where span')
+        location = clean_text(location_node.get_text(' ', strip=True) if location_node else '')
+        # Some Techny responses contain U+FFFD where a dash separator should be.
+        location = location.replace('\ufffd', '—')
+        tag_values = [clean_text(node.get_text(' ', strip=True)) for node in row.select('.tags > span')]
+        salary_node = row.select_one('.c-pay .pay')
+        salary_text = clean_text(salary_node.get_text(' ', strip=True) if salary_node else '')
+        date_node = row.select_one('.c-when')
+        date_text = clean_text(date_node.get_text(' ', strip=True) if date_node else '')
+        logo = row.select_one('.c-co img[src]')
+        category, skills = classify_job(clean_text(title_link.get_text(' ', strip=True)), ' '.join(tag_values))
+        seniority = next(
+            (value for value in tag_values if value.lower() in {
+                'intern', 'junior', 'mid-level', 'senior', 'staff', 'lead', 'head',
+            }),
+            '',
+        )
+        jobs.append({
+            'title': clean_text(title_link.get_text(' ', strip=True)),
+            'company': company or 'Company not disclosed',
+            'company_url': urljoin(base_url, company_link.get('href', '')) if company_link else '',
+            'company_logo_url': urljoin(base_url, logo.get('src', '')) if logo else '',
+            'location': location or 'Location not specified',
+            'job_url': url,
+            'description': 'Full role details are available on the public Techny job page.',
+            'requirements': 'See the public Techny page for the complete requirements.',
+            'job_type': 'Full-time',
+            'posted_at': parse_relative_date(date_text),
+            'source': 'Techny',
+            'category': category,
+            'skills': skills,
+            'seniority': seniority,
+            'salary_text': salary_text,
+            'is_remote': 'remote' in location.lower(),
+        })
+    return jobs
+
+
+def parse_techny_detail(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    payload = None
+    for script in soup.find_all('script', attrs={'type': 'application/ld+json'}):
+        try:
+            candidate = json.loads(script.string or script.get_text() or '{}')
+        except (TypeError, ValueError):
+            continue
+        if isinstance(candidate, dict) and candidate.get('@type') == 'JobPosting':
+            payload = candidate
+            break
+    if not payload:
+        return {}
+    description_html = payload.get('description') or ''
+    description = clean_text(BeautifulSoup(description_html, 'html.parser').get_text('\n'))
+    posted_at = None
+    if payload.get('datePosted'):
+        try:
+            posted_at = datetime.fromisoformat(payload['datePosted']).replace(
+                tzinfo=timezone.get_current_timezone(),
+            )
+        except (TypeError, ValueError):
+            posted_at = None
+    organization = payload.get('hiringOrganization') or {}
+    return {
+        'description': description,
+        'posted_at': posted_at,
+        'company_website': organization.get('sameAs') or '',
+        'company_logo_url': organization.get('logo') or '',
+    }
+
+
+def scrape_techny(limit=40, delay=0.2, output=None):
+    """Collect jobs from Techny's public HTML pages, respecting its robots policy."""
+    session = build_session('https://techny.dev/')
+    try:
+        jobs = parse_techny_listing(fetch_html(session, 'https://techny.dev/'))
+    except (requests.RequestException, SourceUnavailable) as exc:
+        raise SourceUnavailable(f'Techny public jobs page unavailable: {exc}') from exc
+    if not jobs:
+        raise SourceUnavailable('Techny returned no public job rows')
+
+    for job in jobs[:min(limit, 12)]:
+        try:
+            details = parse_techny_detail(fetch_html(session, job['job_url']))
+        except (requests.RequestException, SourceUnavailable) as exc:
+            if output:
+                output(f"Techny detail skipped for {job['title']}: {exc}")
+            continue
+        for key, value in details.items():
+            if value:
+                job[key] = value
+        category, skills = classify_job(job['title'], job.get('description', ''))
+        job['category'] = category
+        job['skills'] = skills
+        if delay:
+            time.sleep(max(delay, 0.15))
+    return jobs[:limit]
+
+
 SCRAPERS = {
     'wuzzuf': ('Wuzzuf', scrape_wuzzuf),
     'bayt': ('Bayt', scrape_bayt),
     'mourjan': ('Mourjan', scrape_mourjan),
     'linkedin': ('LinkedIn', scrape_linkedin),
     'arbeitnow': ('Arbeitnow', scrape_arbeitnow),
+    'techny': ('Techny', scrape_techny),
 }
